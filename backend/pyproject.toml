@@ -1,0 +1,36 @@
+[project]
+name = "figment-backend"
+version = "0.1.0"
+description = "Figment — unified figure & image studio backend (FastAPI + cloud APIs + ComfyUI/Ollama + editable vector pipeline)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "httpx>=0.27",
+    "websockets>=13",
+    "aiosqlite>=0.20",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "pillow>=11",
+    "numpy>=2.0",
+    "sse-starlette>=2.1",
+    "python-multipart>=0.0.12",
+    "rembg>=2.0.59",
+    "onnxruntime>=1.19",
+    # Figure engine (vendored FigGen package) — brings openai, python-pptx,
+    # cairosvg, vtracer, matplotlib, pandas transitively.
+    "figgen",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "httpx>=0.27", "ruff>=0.4"]
+
+[tool.uv.sources]
+figgen = { path = "../figure_engine", editable = true }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.uv]
+package = false

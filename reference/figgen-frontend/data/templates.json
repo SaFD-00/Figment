@@ -1,0 +1,86 @@
+{
+  "disciplines": [
+    { "id": "medicine", "label": "Medicine", "icon": "🩺" },
+    { "id": "biology", "label": "Biology", "icon": "🧬" },
+    { "id": "chemistry", "label": "Chemistry", "icon": "⚗️" },
+    { "id": "protocols", "label": "Protocols", "icon": "🧫" },
+    { "id": "stem_education", "label": "STEM Education", "icon": "📐" },
+    { "id": "cs", "label": "CS", "icon": "💻" },
+    { "id": "physics", "label": "Physics", "icon": "🔭" },
+    { "id": "geosciences", "label": "Geosciences", "icon": "🌍" },
+    { "id": "general", "label": "General", "icon": "✦" }
+  ],
+  "templates": [
+    { "id": "med_anatomy", "discipline": "medicine", "title": "Anatomy", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A labeled anatomical cross-section of the human stomach and digestive tract showing layered tissue and major structures" },
+    { "id": "med_pathology", "discipline": "medicine", "title": "Pathology", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A tissue pathology illustration comparing healthy and diseased cells with key cellular changes" },
+    { "id": "med_oncology", "discipline": "medicine", "title": "Oncology", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A tumor microenvironment illustration showing cancer cells, immune cells, and blood vessels" },
+    { "id": "med_neuroscience", "discipline": "medicine", "title": "Neuroscience", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A neuron and synapse illustration showing neurotransmitter release across the synaptic cleft" },
+    { "id": "med_pharmacology", "discipline": "medicine", "title": "Pharmacology", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A drug mechanism of action illustration showing a molecule binding its receptor and the downstream cellular response" },
+    { "id": "med_infectious", "discipline": "medicine", "title": "Infectious Disease", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "An infection and immune response scene showing a pathogen invading host tissue and immune cells responding" },
+
+    { "id": "bio_cells", "discipline": "biology", "title": "Cells", "figure_type": "scientific_illustration", "aspect": "square", "prompt": "A detailed eukaryotic cell cross-section showing the nucleus, mitochondria, ER, and other organelles" },
+    { "id": "bio_genetics", "discipline": "biology", "title": "Genetics", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A DNA replication and transcription illustration showing the double helix, polymerase, and mRNA" },
+    { "id": "bio_immunology", "discipline": "biology", "title": "Immunology", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "An adaptive immune response illustration showing antigen presentation, T cells, and B cells producing antibodies" },
+    { "id": "bio_microbiology", "discipline": "biology", "title": "Microbiology", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A bacterial cell illustration showing the cell wall, flagella, plasmid, and ribosomes" },
+    { "id": "bio_pathways", "discipline": "biology", "title": "Pathways", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A cell signaling cascade from receptor binding through second messengers to a nuclear transcription response" },
+    { "id": "bio_ecology", "discipline": "biology", "title": "Ecology", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "An ecosystem energy flow illustration showing producers, consumers, decomposers, and nutrient cycling" },
+
+    { "id": "chem_molecules", "discipline": "chemistry", "title": "Molecules", "figure_type": "scientific_illustration", "aspect": "square", "prompt": "A 3D molecular structure illustration of an organic compound showing atoms, bonds, and geometry" },
+    { "id": "chem_biochemistry", "discipline": "chemistry", "title": "Biochemistry", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "An enzyme catalysis illustration showing substrate binding, the active site, and product release" },
+    { "id": "chem_nanomaterials", "discipline": "chemistry", "title": "Nanomaterials", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A nanomaterial illustration showing nanoparticles and a layered 2D material with surface functionalization" },
+    { "id": "chem_drug_discovery", "discipline": "chemistry", "title": "Drug Discovery", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A drug discovery pipeline scene from target identification and screening to lead optimization" },
+    { "id": "chem_electrochemistry", "discipline": "chemistry", "title": "Electrochemistry", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "An electrochemical cell illustration showing electrodes, electrolyte, and ion and electron flow" },
+    { "id": "chem_characterization", "discipline": "chemistry", "title": "Characterization", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A spectroscopy and characterization setup illustration showing a sample, beam path, and detector" },
+
+    { "id": "proto_in_vivo", "discipline": "protocols", "title": "In Vivo", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "An in vivo experimental protocol illustration showing animal model treatment groups and a timeline of interventions" },
+    { "id": "proto_in_vitro", "discipline": "protocols", "title": "In Vitro", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "An in vitro cell culture protocol illustration showing well plates, pipetting, and incubation steps" },
+    { "id": "proto_equipment", "discipline": "protocols", "title": "Equipment", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A laboratory equipment illustration showing a microscope, centrifuge, and pipettes arranged on a bench" },
+    { "id": "proto_optics", "discipline": "protocols", "title": "Optics", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "An optical setup illustration showing a laser, lenses, mirrors, and beam path on an optical table" },
+    { "id": "proto_synthesis", "discipline": "protocols", "title": "Synthesis", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A chemical synthesis protocol illustration showing reaction flasks, reflux, and a step-by-step workflow" },
+    { "id": "proto_computational", "discipline": "protocols", "title": "Computational", "figure_type": "method_diagram", "aspect": "wide", "prompt": "A computational analysis pipeline from raw data through preprocessing, modeling, and evaluation" },
+
+    { "id": "stem_math", "discipline": "stem_education", "title": "Math & Geometry", "figure_type": "scientific_illustration", "aspect": "square", "prompt": "A clean geometry illustration of a right triangle with labeled sides and angles demonstrating a theorem" },
+    { "id": "stem_physics", "discipline": "stem_education", "title": "Physics", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A physics concept illustration showing forces and motion on an inclined plane with vectors" },
+    { "id": "stem_chemistry", "discipline": "stem_education", "title": "Chemistry", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A chemistry classroom illustration showing a labeled experimental glassware setup with a reaction" },
+    { "id": "stem_biology", "discipline": "stem_education", "title": "Biology", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "An educational biology illustration of photosynthesis in a plant leaf with inputs and outputs" },
+    { "id": "stem_geography", "discipline": "stem_education", "title": "Geography", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A geography illustration of the water cycle over a landscape with evaporation, clouds, and precipitation" },
+    { "id": "stem_it", "discipline": "stem_education", "title": "IT", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "An IT concept illustration showing connected computers, a server, and the cloud in a simple network" },
+
+    { "id": "cs_ml", "discipline": "cs", "title": "Machine Learning", "figure_type": "method_diagram", "aspect": "wide", "prompt": "A neural network training pipeline from input data through an encoder, model, and loss to predictions" },
+    { "id": "cs_cv", "discipline": "cs", "title": "Computer Vision", "figure_type": "method_diagram", "aspect": "wide", "prompt": "A computer vision pipeline from image input through feature extraction and a CNN to object detection output" },
+    { "id": "cs_robotics", "discipline": "cs", "title": "Robotics", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A robotics illustration showing a robotic arm with sensors, actuators, and a perception-to-action loop" },
+    { "id": "cs_distributed", "discipline": "cs", "title": "Distributed Systems", "figure_type": "method_diagram", "aspect": "wide", "prompt": "A distributed system architecture showing clients, load balancer, services, and databases" },
+    { "id": "cs_data_science", "discipline": "cs", "title": "Data Science", "figure_type": "method_diagram", "aspect": "wide", "prompt": "A data science workflow from data collection through cleaning, analysis, modeling, and visualization" },
+    { "id": "cs_cybersecurity", "discipline": "cs", "title": "Cybersecurity", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A cybersecurity illustration showing a firewall, encrypted traffic, and a threat being blocked at the network edge" },
+
+    { "id": "phys_mechanics", "discipline": "physics", "title": "Mechanics", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A classical mechanics illustration of a pendulum and projectile motion with force and velocity vectors" },
+    { "id": "phys_em", "discipline": "physics", "title": "Electromagnetics", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "An electromagnetism illustration showing magnetic field lines around a current-carrying coil" },
+    { "id": "phys_quantum", "discipline": "physics", "title": "Quantum Mechanics", "figure_type": "scientific_illustration", "aspect": "square", "prompt": "A quantum mechanics illustration of atomic orbitals and energy level transitions" },
+    { "id": "phys_thermo", "discipline": "physics", "title": "Thermodynamics", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A thermodynamics illustration of a heat engine cycle showing heat flow, work, and a piston" },
+    { "id": "phys_semiconductors", "discipline": "physics", "title": "Semiconductors", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A semiconductor illustration showing a p-n junction band diagram with electrons and holes" },
+    { "id": "phys_aerospace", "discipline": "physics", "title": "Aerospace", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "An aerospace illustration of airflow over an aircraft wing showing lift, drag, and pressure" },
+
+    { "id": "geo_geology", "discipline": "geosciences", "title": "Geology", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A geology cross-section illustration showing rock strata, a fault, and subsurface layers" },
+    { "id": "geo_atmosphere", "discipline": "geosciences", "title": "Atmosphere", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "An atmospheric science illustration showing atmospheric layers and circulation over the Earth" },
+    { "id": "geo_hydrology", "discipline": "geosciences", "title": "Hydrology", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A hydrology illustration of a watershed showing rivers, groundwater, and the water cycle" },
+    { "id": "geo_environment", "discipline": "geosciences", "title": "Environment", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "An environmental science illustration showing a carbon cycle across forest, ocean, and atmosphere" },
+    { "id": "geo_geophysics", "discipline": "geosciences", "title": "Geophysics", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A geophysics illustration of seismic waves propagating through the Earth's interior layers" },
+    { "id": "geo_remote_sensing", "discipline": "geosciences", "title": "Remote Sensing", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A remote sensing illustration showing a satellite imaging the Earth's surface across spectral bands" },
+
+    { "id": "gen_graphical_abstract", "discipline": "general", "title": "Graphical Abstract", "figure_type": "graphical_abstract", "aspect": "wide", "prompt": "A graphical abstract telling a problem to method to result story for a research study" },
+    { "id": "gen_posters", "discipline": "general", "title": "Posters", "figure_type": "scientific_illustration", "aspect": "tall", "prompt": "A scientific poster-style composite illustration summarizing a study with multiple panels" },
+    { "id": "gen_flowcharts", "discipline": "general", "title": "Flowcharts", "figure_type": "method_diagram", "aspect": "wide", "prompt": "A clean process flowchart with decision points and ordered stages" },
+    { "id": "gen_timelines", "discipline": "general", "title": "Timelines", "figure_type": "method_diagram", "aspect": "wide", "prompt": "A horizontal project timeline showing milestones and phases left to right" },
+    { "id": "gen_multipanel", "discipline": "general", "title": "Multi-panel", "figure_type": "scientific_illustration", "aspect": "wide", "prompt": "A multi-panel figure with labeled panels A, B, and C each showing a related result" },
+    { "id": "gen_journal_cover", "discipline": "general", "title": "Journal Cover", "figure_type": "scientific_illustration", "aspect": "square", "prompt": "A striking journal cover illustration with a central scientific subject and dramatic lighting" }
+  ],
+  "flowcharts": [
+    { "id": "flow_technical_roadmap", "title": "Technical Roadmap", "figure_type": "method_diagram", "aspect": "wide", "prompt": "A technical roadmap with quarterly phases and milestones from research to launch" },
+    { "id": "flow_model_architecture", "title": "Model Architecture", "figure_type": "method_diagram", "aspect": "wide", "prompt": "A deep learning model architecture showing input, encoder blocks, attention, decoder, and output head" },
+    { "id": "flow_research_methodology", "title": "Research Methodology Flowchart", "figure_type": "method_diagram", "aspect": "wide", "prompt": "A research methodology flowchart from research question through data collection, analysis, and conclusions" },
+    { "id": "flow_conceptual_framework", "title": "Conceptual Framework", "figure_type": "method_diagram", "aspect": "wide", "prompt": "A conceptual framework diagram showing independent, mediating, and dependent variables with relationships" },
+    { "id": "flow_fishbone", "title": "Fishbone Diagram", "figure_type": "method_diagram", "aspect": "wide", "prompt": "A fishbone Ishikawa cause-and-effect diagram with major cause categories branching to an effect" },
+    { "id": "flow_consort", "title": "CONSORT Flow Diagram", "figure_type": "method_diagram", "aspect": "tall", "prompt": "A CONSORT flow diagram for a randomized trial with enrollment, allocation, follow-up, and analysis stages" },
+    { "id": "flow_prisma", "title": "PRISMA Flow Diagram", "figure_type": "method_diagram", "aspect": "tall", "prompt": "A PRISMA systematic review flow diagram with identification, screening, eligibility, and included records" }
+  ]
+}

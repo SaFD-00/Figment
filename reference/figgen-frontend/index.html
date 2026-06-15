@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FigGen — AI 과학 일러스트 에디터</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233b82f6'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='700'%3E✦%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <header id="topnav">
+    <div class="brand"><span class="brand-mark">✦</span> FigGen</div>
+    <nav class="nav-links" id="nav-links">
+      <a data-view="home">Home</a>
+      <a data-view="history">History</a>
+      <a data-view="projects">Projects</a>
+    </nav>
+    <div class="nav-right">
+      <span id="provider-badge" class="badge" title="사용 가능한 provider"></span>
+      <button id="upgrade" class="upgrade" title="데모 — 결제 미연결">Upgrade</button>
+      <span id="credit-badge" class="credit" title="크레딧(데모, 미차감)">✦ <b id="credit-n">250</b></span>
+      <div class="avatar" title="계정">F</div>
+    </div>
+  </header>
+
+  <main id="app">
+    <aside id="rail">
+      <button class="rail-btn" data-view="home" title="홈"><span>⌂</span></button>
+      <button class="rail-btn" data-view="history" title="히스토리"><span>🕘</span></button>
+      <button class="rail-btn" data-view="projects" title="프로젝트"><span>🗂</span></button>
+      <button class="rail-btn" data-rail="new" title="새 figure"><span>＋</span></button>
+    </aside>
+    <div id="app-views">
+      <!-- Home: figurelabs 랜딩(갤러리) ↔ 워크스페이스(좌 대화·우 캔버스) -->
+      <section id="view-home" class="view">
+        <section id="landing" class="hidden"></section>
+        <div id="workspace">
+          <aside id="composer"></aside>
+          <section id="canvas">
+            <div id="canvas-toolbar"></div>
+            <div id="progress"></div>
+            <div id="downloads"></div>
+            <div id="preview" class="preview-wrap">
+              <div class="preview-empty">
+                <div class="empty-hero">
+                  <h2>아이디어를 출판 가능한 과학 figure로</h2>
+                  <p>왼쪽 대화에서 figure를 설명하고 계획을 확정하면, 결과가 여기 편집 가능한 벡터(PPTX·SVG)로 나타납니다.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- History -->
+      <section id="view-history" class="view hidden full-view"></section>
+      <!-- Projects -->
+      <section id="view-projects" class="view hidden full-view"></section>
+    </div>
+  </main>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

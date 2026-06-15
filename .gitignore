@@ -1,0 +1,40 @@
+# deps
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.uv/
+.pytest_cache/
+.ruff_cache/
+
+# build
+.next/
+dist/
+out/
+tsconfig.tsbuildinfo
+
+# runtime home: models, ComfyUI install, SQLite DB, logs, generated outputs (multi-GB — never commit)
+/AIStudio/
+/comfyui/
+
+# stray runtime artifacts (in case AISTUDIO_HOME is pointed elsewhere)
+outputs/
+figgen_out/
+/tmp/figgen_*
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.log
+
+# content-addressed asset cache pairs leaking to root (32-hex .json/.png)
+/????????????????????????????????.json
+/????????????????????????????????.png
+
+# env
+.env
+.env.local
+
+# os
+.DS_Store

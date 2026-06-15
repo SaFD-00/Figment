@@ -1,0 +1,47 @@
+{
+  "figure_type": "method_diagram",
+  "title": "Transformer Encoder-Decoder",
+  "canvas": { "width_mm": 180 },
+  "root": {
+    "type": "row",
+    "id": "root",
+    "gap_mm": 14,
+    "padding_mm": 8,
+    "align": "center",
+    "children": [
+      { "type": "box", "id": "input", "label": "Input Tokens", "role": "input" },
+      {
+        "type": "group",
+        "id": "encoder",
+        "label": "Encoder",
+        "role": "module",
+        "gap_mm": 4,
+        "padding_mm": 5,
+        "children": [
+          { "type": "box", "id": "embed", "label": "Embedding", "role": "process" },
+          { "type": "box", "id": "attn", "label": "Multi-Head Self-Attention", "role": "model" },
+          { "type": "box", "id": "ffn", "label": "Feed Forward", "role": "process" }
+        ]
+      },
+      {
+        "type": "group",
+        "id": "decoder",
+        "label": "Decoder",
+        "role": "module",
+        "gap_mm": 4,
+        "padding_mm": 5,
+        "children": [
+          { "type": "box", "id": "cross", "label": "Cross-Attention", "role": "model" },
+          { "type": "box", "id": "dffn", "label": "Feed Forward", "role": "process" }
+        ]
+      },
+      { "type": "box", "id": "output", "label": "Output Probabilities", "role": "output", "shape": "ellipse" }
+    ]
+  },
+  "connectors": [
+    { "id": "c_in", "source": "input", "target": "encoder", "label": "embed" },
+    { "id": "c_enc_dec", "source": "encoder", "target": "decoder", "label": "context" },
+    { "id": "c_out", "source": "decoder", "target": "output" },
+    { "id": "c_fb", "source": "output", "target": "input", "line_role": "feedback", "routing": "curve", "arrow": "none" }
+  ]
+}
