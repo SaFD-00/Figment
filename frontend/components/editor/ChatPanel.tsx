@@ -204,7 +204,7 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
         title="Let the selected LLM expand your prompt into rich detail"
       >
         {enhancing && <Spinner />}
-        {enhancing ? "Enhancing…" : "✨ Enhance"}
+        {enhancing ? "Enhancing…" : "Enhance"}
       </Button>
     </div>
   );

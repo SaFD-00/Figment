@@ -11,6 +11,7 @@ import {
   createJob,
   createProject,
   enhancePrompt,
+  fileToDataUrl,
   uploadFile,
 } from "../../lib/api";
 import { defaultGenSpec, type GenMode } from "../../lib/types";
@@ -29,9 +30,11 @@ export function PromptBox() {
   const [prompt, setPrompt] = useState("");
   const getImageModelForMode = useModelsStore((s) => s.getImageModelForMode);
   const selectedLlmId = useModelsStore((s) => s.selectedLlmId);
+  const selectedLlm = useModelsStore((s) => s.selectedLlm);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
+  const [enhanceNote, setEnhanceNote] = useState(""); // optional "how to enhance" guidance
   const [prevPrompt, setPrevPrompt] = useState<string | null>(null); // original kept for undo
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -96,9 +99,17 @@ export function PromptBox() {
     setError(null);
     setEnhancing(true);
     try {
+      // Edit/reference modes feed the uploaded image to a vision LLM so it can ground the rewrite;
+      // first image only (matches the reference/edit generation convention).
+      const image =
+        showDropzone && files[0] && selectedLlm()?.vision
+          ? await fileToDataUrl(files[0])
+          : null;
       const { prompt: enhanced } = await enhancePrompt(text, {
         llmModel: selectedLlmId,
         imageModel: getImageModelForMode(genMode),
+        instruction: enhanceNote.trim() || null,
+        image,
       });
       setPrevPrompt(prompt); // remember the original (untrimmed) for undo
       setPrompt(enhanced);
@@ -194,10 +205,25 @@ export function PromptBox() {
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-3 border-t border-line px-2 pt-3">
-          <ModelPillRow mode={genMode} />
+        <div className="border-t border-line px-2 pt-2">
+          <input
+            type="text"
+            value={enhanceNote}
+            onChange={(e) => setEnhanceNote(e.target.value)}
+            placeholder="How to enhance (optional) — e.g. more cinematic, neon lighting"
+            className="w-full bg-transparent px-1 py-1 text-sm text-ink placeholder:text-muted focus:outline-none"
+          />
+          {showDropzone && files.length > 0 && selectedLlm()?.vision && (
+            <p className="px-1 pb-1 text-xs text-muted">
+              🖼 your uploaded image will be sent to the LLM
+            </p>
+          )}
+        </div>
 
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-3 border-t border-line px-2 pt-3">
+          <ModelPillRow mode={genMode} className="flex min-w-0 flex-wrap items-center gap-2" />
+
+          <div className="flex shrink-0 items-center gap-2">
             {prevPrompt !== null && (
               <Button
                 variant="ghost"
@@ -217,7 +243,7 @@ export function PromptBox() {
               title="Let the selected LLM expand your prompt into rich detail"
             >
               {enhancing && <Spinner />}
-              {enhancing ? "Enhancing…" : "✨ Enhance"}
+              {enhancing ? "Enhancing…" : "Enhance"}
             </Button>
             <Button
               variant="primary"

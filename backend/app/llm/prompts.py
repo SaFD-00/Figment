@@ -120,10 +120,35 @@ def _style_hint_for(model: ModelDef | None) -> str:
     return _NL_HINT
 
 
-def build_enhance_messages(user_text: str, image_model: str | None) -> list[dict]:
+def build_enhance_messages(
+    user_text: str,
+    image_model: str | None,
+    instruction: str | None = None,
+    image_url: str | None = None,
+) -> list[dict]:
+    """Messages for the one-shot enhance.
+
+    `instruction` is the user's optional "how to enhance" guidance, woven into the prompt.
+    `image_url` (a data URL) is attached as an OpenAI-style multimodal part so a vision LLM can
+    ground the rewrite in the uploaded image — only passed when the route is a cloud vision model.
+    """
     m = MODELS.get(image_model) if image_model else None
     system = SYSTEM_PROMPT_ENHANCE.format(style_hint=_style_hint_for(m))
     msgs: list[dict] = [{"role": "system", "content": system}]
     msgs.extend(_ENHANCE_FEWSHOT)
-    msgs.append({"role": "user", "content": user_text})
+
+    text = user_text
+    if instruction and instruction.strip():
+        text = f"{text}\n\n[How to enhance: {instruction.strip()}]"
+    if image_url:
+        text = (
+            f"{text}\n\n[An image is attached. Ground the rewritten prompt in what you see — "
+            "match its subject, composition, and style — while honoring the idea above.]"
+        )
+        msgs.append({"role": "user", "content": [
+            {"type": "text", "text": text},
+            {"type": "image_url", "image_url": {"url": image_url}},
+        ]})
+    else:
+        msgs.append({"role": "user", "content": text})
     return msgs

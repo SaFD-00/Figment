@@ -27,13 +27,17 @@ FastAPI backend (:8000)
   The chat LLM follows the UI model pick (`ChatRequest.llm_model`): `llm/routing.py:resolve_chat` routes a
   **local** LLM to its Ollama tag and a **cloud** LLM to OpenRouter (`openrouter_client.py`), degrading
   to the default Ollama model when no key is set — so model choice lives in the picker, not `.env`.
-- **Prompt enhance** (the composer's **✨ Enhance** button): `POST /prompt/enhance` rewrites a short/vague
+- **Prompt enhance** (the composer's **Enhance** button): `POST /prompt/enhance` rewrites a short/vague
   idea into one rich **English** image prompt via the selected LLM, reusing the *same* routing
   (`llm/routing.py` — shared with chat). It returns a single JSON `{prompt}` (no streaming, no GENSPEC,
   no chat); `prompts.py:build_enhance_messages` tailors comma-tags vs natural language to the picked image
-  model, and `routers/prompt.py:_clean` strips `<think>` reasoning / quotes / labels. The frontend drops
-  the result into the prompt box with a one-step ↶ undo. (Distinct from the diagram's ComfyUI `/prompt`,
-  which is the local image engine on :8188.)
+  model, and `routers/prompt.py:_clean` strips `<think>` reasoning / quotes / labels. The request also
+  carries an optional **`instruction`** (the user's "how to enhance" note, woven into the user turn) and an
+  optional **`image`** data URL: for **edit/reference** modes the home composer sends the first uploaded
+  image, and `_enhance_image_url` attaches it as an OpenAI-style multimodal part **only** when the route is
+  a cloud **vision** model (`provider == "openrouter"` + `ModelDef.vision`) — normalized to a ≤768px PNG via
+  `image_ops`. The frontend drops the result into the prompt box with a one-step ↶ undo. (Distinct from the
+  diagram's ComfyUI `/prompt`, which is the local image engine on :8188.)
 - **Job execution** (`orchestrator/queue.py`): resolve model → `MemoryOrchestrator.ensure_ready_for`
   (free ComfyUI / unload LLM as needed) → upload input images to ComfyUI → `builder.build()` →
   connect `/ws` (sentinel) → `queue_prompt` → map progress to SSE → fetch result from `/history`+`/view`

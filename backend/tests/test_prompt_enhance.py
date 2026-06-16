@@ -3,8 +3,12 @@
 The endpoint reuses the shared LLM routing (covered by test_chat_routing). Here we check the
 tag-vs-natural-language hint selection, the output cleaner, and the endpoint's accumulate/clean
 behaviour with a fake token stream (no network)."""
+import base64
+import io
+
 import pytest
 from fastapi import HTTPException
+from PIL import Image
 
 import app.routers.prompt as promptmod
 from app.llm.prompts import build_enhance_messages
@@ -13,6 +17,12 @@ from app.routers.prompt import EnhanceRequest, _clean, enhance
 
 def _system(msgs: list[dict]) -> str:
     return next(m["content"] for m in msgs if m["role"] == "system")
+
+
+def _png_data_url() -> str:
+    buf = io.BytesIO()
+    Image.new("RGB", (4, 4), (10, 20, 30)).save(buf, "PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
 
 
 # ── message builder ──────────────────────────────────────────────────────────
@@ -32,6 +42,22 @@ def test_enhance_system_prompt_is_output_only():
     assert "Output ONLY the rewritten prompt text" in sys
     assert "GENSPEC JSON SHAPE" not in sys  # the refiner's section header — must NOT appear here
     assert "rewrite" in sys.lower()
+
+
+def test_build_enhance_messages_weaves_instruction():
+    msgs = build_enhance_messages("a cat", "qwen-image", instruction="more cinematic")
+    user = msgs[-1]["content"]
+    assert isinstance(user, str)  # no image → plain string content
+    assert "How to enhance: more cinematic" in user
+
+
+def test_build_enhance_messages_attaches_image_as_multimodal():
+    url = "data:image/png;base64,AAAA"
+    msgs = build_enhance_messages("a cat", "qwen-image", image_url=url)
+    content = msgs[-1]["content"]
+    assert isinstance(content, list)  # OpenAI-style multimodal parts
+    assert content[0]["type"] == "text"
+    assert content[1] == {"type": "image_url", "image_url": {"url": url}}
 
 
 # ── output cleaner ───────────────────────────────────────────────────────────
@@ -94,3 +120,21 @@ async def test_enhance_empty_result_raises_502(monkeypatch):
     with pytest.raises(HTTPException) as ei:
         await enhance(EnhanceRequest(prompt="cat"))
     assert ei.value.status_code == 502
+
+
+async def test_enhance_attaches_image_for_vision_cloud_llm(monkeypatch):
+    captured: dict = {}
+    monkeypatch.setattr(promptmod, "chat_stream", _recording_stream(["x"], captured))
+    # gemma-4-31b resolves to a cloud vision model → image is normalized and attached
+    monkeypatch.setattr(promptmod, "resolve_chat", lambda _id: ("openrouter", "google/gemma-4-31b-it:free"))
+    await enhance(EnhanceRequest(prompt="cat", llm_model="gemma-4-31b", image=_png_data_url()))
+    assert isinstance(captured["messages"][-1]["content"], list)  # multimodal attached
+
+
+async def test_enhance_ignores_image_for_non_vision_route(monkeypatch):
+    captured: dict = {}
+    monkeypatch.setattr(promptmod, "chat_stream", _recording_stream(["x"], captured))
+    # local Ollama route (or any non-openrouter) → image dropped, text-only enhance
+    monkeypatch.setattr(promptmod, "resolve_chat", lambda _id: ("ollama", None))
+    await enhance(EnhanceRequest(prompt="cat", llm_model="qwen-9b-local", image=_png_data_url()))
+    assert isinstance(captured["messages"][-1]["content"], str)  # image ignored
