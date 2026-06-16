@@ -27,7 +27,7 @@ export function PromptBox() {
   const router = useRouter();
   const [mode, setMode] = useState<HomeMode>("generate");
   const [prompt, setPrompt] = useState("");
-  const selectedImageId = useModelsStore((s) => s.selectedImageId);
+  const getImageModelForMode = useModelsStore((s) => s.getImageModelForMode);
   const selectedLlmId = useModelsStore((s) => s.selectedLlmId);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -63,7 +63,7 @@ export function PromptBox() {
 
       const spec = defaultGenSpec();
       spec.mode = genMode;
-      spec.model = selectedImageId || null;
+      spec.model = getImageModelForMode(genMode);
       spec.llm_model = selectedLlmId || null;
       spec.prompt = prompt.trim();
 
@@ -98,7 +98,7 @@ export function PromptBox() {
     try {
       const { prompt: enhanced } = await enhancePrompt(text, {
         llmModel: selectedLlmId,
-        imageModel: selectedImageId,
+        imageModel: getImageModelForMode(genMode),
       });
       setPrevPrompt(prompt); // remember the original (untrimmed) for undo
       setPrompt(enhanced);
@@ -195,7 +195,7 @@ export function PromptBox() {
         )}
 
         <div className="flex items-center justify-between gap-3 border-t border-line px-2 pt-3">
-          <ModelPillRow />
+          <ModelPillRow mode={genMode} />
 
           <div className="flex items-center gap-2">
             {prevPrompt !== null && (

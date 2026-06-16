@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useModelsStore } from "../../lib/models";
-import { isCloud, type Model } from "../../lib/types";
+import { isCloud, type GenMode, type Model } from "../../lib/types";
 
 // "Qwen-Image 2512 (local · quality txt2img)" -> "Qwen-Image 2512"
 function shortLabel(label: string): string {
@@ -54,13 +54,17 @@ function Chevron() {
  * figurelabs-style inline model pill bound to the unified models store.
  * A compact button shows the selected model; clicking opens a grouped Local/Cloud popover.
  * `kind` selects the catalog (image-generation or chat/planner LLM).
+ * For `kind="image"`, `mode` scopes both the list (mode-compatible models only) and the
+ * selection (each generation mode remembers its own image model). Defaults to "txt2img".
  */
 export function ModelPill({
   kind,
+  mode,
   placement = "bottom",
   allowNotReady = false,
 }: {
   kind: "image" | "llm";
+  mode?: GenMode;
   placement?: "top" | "bottom";
   allowNotReady?: boolean;
 }) {
@@ -68,10 +72,10 @@ export function ModelPill({
     image,
     llm,
     load,
-    selectedImageId,
     selectedLlmId,
     setImageModel,
     setLlmModel,
+    getImageModelForMode,
   } = useModelsStore();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -97,9 +101,11 @@ export function ModelPill({
     };
   }, [open]);
 
-  const models = kind === "image" ? image : llm;
-  const selectedId = kind === "image" ? selectedImageId : selectedLlmId;
-  const onPick = kind === "image" ? setImageModel : setLlmModel;
+  const imageMode: GenMode = mode ?? "txt2img";
+  const models =
+    kind === "image" ? image.filter((m) => m.modes.includes(imageMode)) : llm;
+  const selectedId =
+    kind === "image" ? getImageModelForMode(imageMode) : selectedLlmId;
   const selected = models.find((m) => m.id === selectedId) ?? null;
 
   const local = models.filter((m) => !isCloud(m));
@@ -107,7 +113,8 @@ export function ModelPill({
 
   function choose(m: Model) {
     if (!allowNotReady && !m.ready) return;
-    onPick(m.id);
+    if (kind === "image") setImageModel(imageMode, m.id);
+    else setLlmModel(m.id);
     setOpen(false);
   }
 
@@ -181,17 +188,20 @@ export function ModelPill({
   );
 }
 
-/** Image + LLM pills side by side — used in the composer toolbars. */
+/** Image + LLM pills side by side — used in the composer toolbars.
+ * `mode` scopes the image pill to a generation mode (per-mode model selection). */
 export function ModelPillRow({
   className,
+  mode,
   placement = "bottom",
 }: {
   className?: string;
+  mode?: GenMode;
   placement?: "top" | "bottom";
 }) {
   return (
     <div className={className ?? "flex flex-wrap items-center gap-2"}>
-      <ModelPill kind="image" placement={placement} />
+      <ModelPill kind="image" mode={mode} placement={placement} />
       <ModelPill kind="llm" placement={placement} />
     </div>
   );

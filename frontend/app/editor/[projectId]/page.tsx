@@ -26,6 +26,7 @@ import {
 } from "../../../lib/api";
 import { dataURLtoBlob } from "../../../lib/canvas";
 import { useEditorStore } from "../../../lib/store";
+import { useModelsStore } from "../../../lib/models";
 import { useJobRunner } from "../../../lib/useJob";
 import { defaultGenSpec, type Project } from "../../../lib/types";
 import { ChatPanel } from "../../../components/editor/ChatPanel";
@@ -68,6 +69,7 @@ function EditorPageInner() {
   const maskMode = useEditorStore((s) => s.maskMode);
   const setMaskMode = useEditorStore((s) => s.setMaskMode);
   const reset = useEditorStore((s) => s.reset);
+  const getImageModelForMode = useModelsStore((s) => s.getImageModelForMode);
 
   const { run, attach } = useJobRunner();
 
@@ -157,7 +159,7 @@ function EditorPageInner() {
 
         const spec = defaultGenSpec();
         spec.mode = "inpaint";
-        spec.model = "flux-fill";
+        spec.model = getImageModelForMode("inpaint");
         spec.prompt = prompt;
         spec.source_asset = sourceAsset.id;
         spec.mask_asset = maskAsset.id;
@@ -177,7 +179,7 @@ function EditorPageInner() {
         flash((e as Error)?.message ?? "Redraw failed.");
       }
     },
-    [currentAsset, projectId, run, setMaskMode, flash],
+    [currentAsset, projectId, run, setMaskMode, flash, getImageModelForMode],
   );
 
   // Text edit: upload current image as source, run an edit job.
@@ -195,7 +197,7 @@ function EditorPageInner() {
         );
         const spec = defaultGenSpec();
         spec.mode = "edit";
-        spec.model = "qwen-edit";
+        spec.model = getImageModelForMode("edit");
         spec.prompt = prompt;
         spec.source_asset = sourceAsset.id;
         spec.width = currentAsset.width || spec.width;
@@ -208,7 +210,7 @@ function EditorPageInner() {
         flash((e as Error)?.message ?? "Edit failed.");
       }
     },
-    [currentAsset, projectId, run, flash],
+    [currentAsset, projectId, run, flash, getImageModelForMode],
   );
 
   const handleUpscale = useCallback(async () => {

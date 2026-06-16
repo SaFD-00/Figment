@@ -38,8 +38,7 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
   const chatGenSpec = useEditorStore((s) => s.chatGenSpec);
   const setChatGenSpec = useEditorStore((s) => s.setChatGenSpec);
   const activeJob = useEditorStore((s) => s.activeJob);
-  const images = useModelsStore((s) => s.image);
-  const selectedImageId = useModelsStore((s) => s.selectedImageId);
+  const getImageModelForMode = useModelsStore((s) => s.getImageModelForMode);
   const selectedLlmId = useModelsStore((s) => s.selectedLlmId);
   const { run } = useJobRunner();
 
@@ -141,7 +140,7 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
     try {
       const { prompt: enhanced } = await enhancePrompt(text, {
         llmModel: selectedLlmId,
-        imageModel: selectedImageId,
+        imageModel: getImageModelForMode("txt2img"),
       });
       setPrevInput(input); // remember the original for undo
       setInput(enhanced);
@@ -165,11 +164,11 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
       seed: seed.trim() === "" ? null : Number(seed),
       steps: steps.trim() === "" ? null : Number(steps),
     };
-    // The user's explicitly-picked image model wins over the LLM's suggestion, but only when
-    // it supports this spec's mode (e.g. don't force a txt2img-only model onto an edit job).
-    const picked = images.find((m) => m.id === selectedImageId) ?? null;
-    if (picked && picked.modes.includes(spec.mode)) {
-      spec.model = picked.id;
+    // The user's per-mode image pick wins over the LLM's suggestion. getImageModelForMode
+    // already returns a model compatible with this spec's mode, so it's always safe to apply.
+    const picked = getImageModelForMode(spec.mode);
+    if (picked) {
+      spec.model = picked;
     }
     try {
       setChatGenSpec(null);
@@ -300,7 +299,7 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
           </div>
         ) : (
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <ModelPillRow placement="top" />
+            <ModelPillRow mode="txt2img" placement="top" />
             {enhanceActions}
           </div>
         )}

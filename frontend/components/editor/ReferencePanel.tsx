@@ -6,13 +6,27 @@
 import { useRef, useState } from "react";
 import { uploadFile } from "../../lib/api";
 import { useEditorStore } from "../../lib/store";
+import { useModelsStore } from "../../lib/models";
 import { useJobRunner } from "../../lib/useJob";
-import { defaultGenSpec, type GenSpec, type ReferenceImage } from "../../lib/types";
+import {
+  defaultGenSpec,
+  type GenMode,
+  type GenSpec,
+  type ReferenceImage,
+} from "../../lib/types";
 import { MAX_REFERENCE_IMAGES } from "../../lib/constants";
+import { ModelPill } from "../models/ModelPicker";
 import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
 
 type SubMode = "style" | "structure" | "edit";
+
+// Each reference sub-mode maps to a generation mode, which drives per-mode model selection.
+const SUBMODE_MODE: Record<SubMode, GenMode> = {
+  style: "reference",
+  structure: "controlnet",
+  edit: "edit",
+};
 
 const SUBMODES: { id: SubMode; label: string; desc: string }[] = [
   { id: "style", label: "Style", desc: "Match the look/style of the reference" },
@@ -28,25 +42,22 @@ function buildSpec(
   subMode: SubMode,
   assetIds: string[],
   prompt: string,
+  model: string | null,
 ): GenSpec {
   const spec = defaultGenSpec();
   spec.prompt = prompt.trim();
+  spec.mode = SUBMODE_MODE[subMode];
+  spec.model = model;
   if (subMode === "style") {
-    spec.mode = "reference";
-    spec.model = "redux";
     spec.reference_images = assetIds.map(
       (id): ReferenceImage => ({ asset: id, role: "style", strength: 0.8 }),
     );
   } else if (subMode === "structure") {
-    spec.mode = "controlnet";
-    spec.model = "pony-v6";
     spec.controlnet_type = "canny";
     spec.reference_images = assetIds.map(
       (id): ReferenceImage => ({ asset: id, role: "structure", strength: 0.8 }),
     );
   } else {
-    spec.mode = "edit";
-    spec.model = "kontext";
     spec.reference_images = assetIds.map(
       (id): ReferenceImage => ({ asset: id, role: "edit", strength: 0.85 }),
     );
@@ -69,6 +80,7 @@ export function ReferencePanel({
   const fileRef = useRef<HTMLInputElement>(null);
   const { run } = useJobRunner();
   const setMaskMode = useEditorStore((s) => s.setMaskMode);
+  const getImageModelForMode = useModelsStore((s) => s.getImageModelForMode);
 
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
@@ -99,7 +111,12 @@ export function ReferencePanel({
         const asset = await uploadFile(projectId, "reference", f, f.name);
         assetIds.push(asset.id);
       }
-      const spec = buildSpec(subMode, assetIds, prompt);
+      const spec = buildSpec(
+        subMode,
+        assetIds,
+        prompt,
+        getImageModelForMode(SUBMODE_MODE[subMode]),
+      );
       setMaskMode(false);
       await run(projectId, spec, { pushUndo: true });
       onClose();
@@ -146,9 +163,12 @@ export function ReferencePanel({
             </button>
           ))}
         </div>
-        <p className="mb-4 text-xs text-muted">
-          {SUBMODES.find((s) => s.id === subMode)?.desc}
-        </p>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <p className="text-xs text-muted">
+            {SUBMODES.find((s) => s.id === subMode)?.desc}
+          </p>
+          <ModelPill kind="image" mode={SUBMODE_MODE[subMode]} placement="bottom" />
+        </div>
 
         {files.length > 0 && (
           <ul className="mb-2 flex flex-col gap-1">

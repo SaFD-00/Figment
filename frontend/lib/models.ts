@@ -1,12 +1,23 @@
 // Model catalog + selection store (zustand).
 // Holds the unified image + llm catalogs fetched from the backend and the user's
-// currently selected image / llm model. Persists selection in localStorage.
+// current selection. Image models are selected PER MODE (txt2img/img2img/inpaint/
+// edit/controlnet/reference); the LLM has a single selection. Persists in localStorage.
 
 import { create } from "zustand";
 import { listAllModels } from "./api";
-import type { Model } from "./types";
+import type { GenMode, Model } from "./types";
 
-const LS_IMAGE = "figment.model.image";
+const GEN_MODES: GenMode[] = [
+  "txt2img",
+  "img2img",
+  "inpaint",
+  "edit",
+  "controlnet",
+  "reference",
+];
+
+// Per-mode localStorage key, e.g. "figment.model.image.inpaint".
+const lsImageKey = (mode: GenMode) => `figment.model.image.${mode}`;
 const LS_LLM = "figment.model.llm";
 
 function lsGet(key: string): string | null {
@@ -27,19 +38,22 @@ function lsSet(key: string, val: string) {
   }
 }
 
+type ByMode = Record<GenMode, string | null>;
+
 interface ModelsState {
   image: Model[];
   llm: Model[];
   loaded: boolean;
   loading: boolean;
   error: string | null;
-  selectedImageId: string | null;
+  selectedByMode: ByMode;
   selectedLlmId: string | null;
 
   load: () => Promise<void>;
-  setImageModel: (id: string) => void;
+  setImageModel: (mode: GenMode, id: string) => void;
   setLlmModel: (id: string) => void;
-  selectedImage: () => Model | null;
+  getImageModelForMode: (mode: GenMode) => string | null;
+  selectedImageForMode: (mode: GenMode) => Model | null;
   selectedLlm: () => Model | null;
 }
 
@@ -49,13 +63,35 @@ function pickDefault(models: Model[], preferred: string | null): string | null {
   return (ready ?? models[0])?.id ?? null;
 }
 
+function emptyByMode(): ByMode {
+  return {
+    txt2img: null,
+    img2img: null,
+    inpaint: null,
+    edit: null,
+    controlnet: null,
+    reference: null,
+  };
+}
+
+// Build the per-mode selection from the catalog: restore each mode's localStorage
+// pick (if still mode-compatible), else fall back to a sensible default for that mode.
+function resolveByMode(image: Model[]): ByMode {
+  const out = emptyByMode();
+  for (const mode of GEN_MODES) {
+    const compatible = image.filter((m) => m.modes.includes(mode));
+    out[mode] = pickDefault(compatible, lsGet(lsImageKey(mode)));
+  }
+  return out;
+}
+
 export const useModelsStore = create<ModelsState>((set, get) => ({
   image: [],
   llm: [],
   loaded: false,
   loading: false,
   error: null,
-  selectedImageId: null,
+  selectedByMode: emptyByMode(),
   selectedLlmId: null,
 
   load: async () => {
@@ -68,7 +104,7 @@ export const useModelsStore = create<ModelsState>((set, get) => ({
         llm: cat.llm,
         loaded: true,
         loading: false,
-        selectedImageId: pickDefault(cat.image, lsGet(LS_IMAGE)),
+        selectedByMode: resolveByMode(cat.image),
         selectedLlmId: pickDefault(cat.llm, lsGet(LS_LLM)),
       });
     } catch (e) {
@@ -76,15 +112,19 @@ export const useModelsStore = create<ModelsState>((set, get) => ({
     }
   },
 
-  setImageModel: (id) => {
-    lsSet(LS_IMAGE, id);
-    set({ selectedImageId: id });
+  setImageModel: (mode, id) => {
+    lsSet(lsImageKey(mode), id);
+    set((s) => ({ selectedByMode: { ...s.selectedByMode, [mode]: id } }));
   },
   setLlmModel: (id) => {
     lsSet(LS_LLM, id);
     set({ selectedLlmId: id });
   },
 
-  selectedImage: () => get().image.find((m) => m.id === get().selectedImageId) ?? null,
+  getImageModelForMode: (mode) => get().selectedByMode[mode],
+  selectedImageForMode: (mode) => {
+    const id = get().selectedByMode[mode];
+    return get().image.find((m) => m.id === id) ?? null;
+  },
   selectedLlm: () => get().llm.find((m) => m.id === get().selectedLlmId) ?? null,
 }));
