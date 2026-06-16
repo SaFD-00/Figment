@@ -42,12 +42,17 @@ ControlNet (SDXL, `controlnet/`): `xinsir/controlnet-canny-sdxl-1.0`, `…-depth
 ## Chat / planner LLMs
 
 **Local (Ollama):**
-- `qwen-9b-local` — `hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M` (~6.5GB) — the single local chat/planner LLM.
+- `qwen3-vl-local` — `huihui_ai/qwen3-vl-abliterated:8b` (~6.1GB) — the single local chat/planner LLM,
+  an uncensored **multimodal** (`vision=True`) Qwen3-VL so local Prompt Enhance can read images too.
 
 **Cloud (OpenRouter):** `gemma-4-31b` (`google/gemma-4-31b-it:free`) — a single free **multimodal**
-(`vision=True`) model. Prompt Enhance attaches an uploaded edit/reference image to the message only when
-the route is this cloud vision model (`routers/prompt.py:_enhance_image_url` gates on
-`provider == "openrouter"` + `ModelDef.vision`); local Ollama routes degrade to text-only enhance.
+(`vision=True`) model.
+
+Prompt Enhance attaches an uploaded edit/reference image whenever the **picked** model is vision-capable,
+regardless of provider (`routers/prompt.py:_enhance_image_url` gates on `ModelDef.vision` alone). The cloud
+route forwards OpenAI-style multimodal parts as-is; the local route is served by `OllamaClient`, which
+converts those parts into Ollama's native per-message `images` array (`llm/ollama_client.py:_to_ollama_messages`).
+A non-vision/unknown pick degrades to text-only enhance.
 The FigGen pipeline keeps its own per-feature defaults (`FIGGEN_*_MODEL`) independent of this catalog.
 
 ## Download

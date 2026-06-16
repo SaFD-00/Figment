@@ -32,12 +32,13 @@ Pick the **image** model **per function** (each generation mode remembers its ow
 editor chat, and reference panel), grouped Local / Cloud. **There is no model config in `.env`** —
 it only holds API keys, service URLs, and fallback defaults.
 - **Cloud image** (OpenRouter): GPT Image 2, Nano Banana 2, SeeDream 4.5, FLUX.2 Max/Pro/Flex
-- **Cloud LLM** (OpenRouter): Gemma 4 31B — a free **multimodal** model, so Prompt Enhance can read an uploaded image
-- **Local** (ComfyUI/Ollama, uncensored): Qwen-Image 2512, Qwen-Edit (edit + reference), Pony V6, LUSTIFY SDXL inpaint, Qwen3.5-9B (chat/planner)
+- **Cloud LLM** (OpenRouter): Gemma 4 31B — a free **multimodal** model
+- **Local** (ComfyUI/Ollama, uncensored): Qwen-Image 2512, Qwen-Edit (edit + reference), Pony V6, LUSTIFY SDXL inpaint, Qwen3-VL 8B abliterated (chat/planner, **multimodal**)
 
 The selected model drives the whole pipeline: image generation, and the **chat/planner LLM follows
 your pick too** — a local LLM streams from **Ollama**, a cloud LLM from **OpenRouter** (the same LLM
-also powers **Prompt Enhance** in the composer). Cloud image
+also powers **Prompt Enhance** in the composer). Both the local Qwen3-VL and the cloud Gemma are
+**multimodal**, so Prompt Enhance can read an uploaded edit/reference image on either route. Cloud image
 models route through the **figure pipeline** (structured FigureSpec → editable SVG/PPTX); local image
 models route through **ComfyUI**. With no API key, cloud options are disabled in the picker and the
 app falls back to local/mock so it runs fully offline.
