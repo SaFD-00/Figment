@@ -12,7 +12,7 @@ subclasses. With no key the cloud path falls back to a mock provider. Cloud slug
 ## Local image models (ComfyUI)
 
 The lineup is **uncensored, one or two models per function**. Generation is Qwen + Pony only;
-the FLUX/Chroma families were dropped entirely.
+the **local** FLUX/Chroma families were dropped entirely (cloud FLUX.2 remains — see below).
 
 | Registry id | Role | Repo (HF) | File → subdir | ~VRAM | Notes |
 |---|---|---|---|---|---|
