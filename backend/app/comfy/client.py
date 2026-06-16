@@ -11,6 +11,11 @@ import websockets
 from app.config import get_settings
 
 
+class ServiceUnreachableError(RuntimeError):
+    """필수 외부 서비스(예: ComfyUI)가 도달 불가. 버그가 아닌 운영 상태 —
+    WARNING으로 한 줄 로깅하고 사용자에게 메시지를 그대로 노출한다."""
+
+
 class ComfyUIClient:
     def __init__(self, base_url: Optional[str] = None):
         self.base = (base_url or get_settings().comfy_url).rstrip("/")

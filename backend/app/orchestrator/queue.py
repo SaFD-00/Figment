@@ -8,8 +8,9 @@ from collections import defaultdict
 from typing import AsyncIterator, Optional
 
 from app.comfy import builder as B
-from app.comfy.client import ComfyUIClient, new_client_id
+from app.comfy.client import ComfyUIClient, ServiceUnreachableError, new_client_id
 from app.comfy.progress import is_prompt_done, parse_binary_preview, parse_text_message
+from app.config import get_settings
 from app.db import repo
 from app.engines.figure_pipeline import StagedInput, run_figure_job
 from app.llm.ollama_client import OllamaClient
@@ -76,6 +77,10 @@ class JobWorker:
             job_id = await self._queue.get()
             try:
                 await self._run(job_id)
+            except ServiceUnreachableError as e:
+                log.warning("job %s: %s", job_id, e)
+                await repo.update_job(job_id, status="error", error=str(e))
+                self._publish(ProgressEvent(type="error", job_id=job_id, message=str(e)))
             except Exception as e:  # noqa: BLE001
                 log.exception("job %s failed", job_id)
                 await repo.update_job(job_id, status="error", error=str(e))
@@ -97,6 +102,14 @@ class JobWorker:
         if is_cloud(model):
             await self._run_figure(job_id, job, spec, model)
             return
+
+        # LOCAL 잡은 업로드와 WS 실행 모두 ComfyUI가 필요 — 한 번만 사전 확인해
+        # 미도달 시 raw ConnectError 대신 명확한 메시지를 남긴다.
+        if not await self.comfy.ping():
+            url = get_settings().comfy_url
+            raise ServiceUnreachableError(
+                f"ComfyUI not reachable at {url} — start it with scripts/30_run_comfyui.sh"
+            )
         model = await self.orch.ensure_ready_for(model)
 
         # 2) prepare input images (upload to ComfyUI), build context
