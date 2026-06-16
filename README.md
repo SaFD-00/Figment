@@ -11,9 +11,11 @@ backend that can drive **cloud models** (OpenRouter) and **local models**
 - **Text-to-Figure** — schematics from text or PDFs
 - **Image-to-Figure** — sketches or photos into illustrations
 - **Reference-to-Figure** — match the style/layout of a reference
-- **✨ Prompt Enhance** — one click turns a short idea (any language) into a rich, detailed **English**
+- **Prompt Enhance** — one click turns a short idea (any language) into a rich, detailed **English**
   prompt; your selected LLM does the rewrite (comma-tags for SDXL/Pony, natural language otherwise) and
-  **↶ undo** restores the original. Available in both the home composer and the editor chat.
+  **↶ undo** restores the original. Add an optional **"how to enhance"** note to steer the rewrite, and
+  in **edit/reference** modes a **multimodal LLM** reads your uploaded image to ground the prompt.
+  Available in both the home composer and the editor chat.
 
 **Edit** — Refine without starting over
 - **Text Edit** — fix labels/legends on the image
@@ -30,12 +32,12 @@ Pick the **image** model **per function** (each generation mode remembers its ow
 editor chat, and reference panel), grouped Local / Cloud. **There is no model config in `.env`** —
 it only holds API keys, service URLs, and fallback defaults.
 - **Cloud image** (OpenRouter): GPT Image 2, Nano Banana 2, SeeDream 4.5, FLUX.2 Max/Pro/Flex
-- **Cloud LLM** (OpenRouter): GPT-OSS 20B/120B (free), Qwen3.7 Plus, Qwen3.6 Flash, Qwen3.6 35B-A3B
+- **Cloud LLM** (OpenRouter): Gemma 4 31B — a free **multimodal** model, so Prompt Enhance can read an uploaded image
 - **Local** (ComfyUI/Ollama, uncensored): Qwen-Image 2512, Qwen-Edit (edit + reference), Pony V6, LUSTIFY SDXL inpaint, Qwen3.5 …
 
 The selected model drives the whole pipeline: image generation, and the **chat/planner LLM follows
 your pick too** — a local LLM streams from **Ollama**, a cloud LLM from **OpenRouter** (the same LLM
-also powers **✨ Prompt Enhance** in the composer). Cloud image
+also powers **Prompt Enhance** in the composer). Cloud image
 models route through the **figure pipeline** (structured FigureSpec → editable SVG/PPTX); local image
 models route through **ComfyUI**. With no API key, cloud options are disabled in the picker and the
 app falls back to local/mock so it runs fully offline.
