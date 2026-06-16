@@ -12,8 +12,10 @@ import { useEffect, useRef, useState } from "react";
 import { assetFileUrl, getMessages } from "../../lib/api";
 import { streamChat } from "../../lib/sse";
 import { useEditorStore } from "../../lib/store";
+import { useModelsStore } from "../../lib/models";
 import { useJobRunner } from "../../lib/useJob";
 import type { ChatMessage, GenSpec } from "../../lib/types";
+import { ModelPillRow } from "../models/ModelPicker";
 import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
 
@@ -34,6 +36,9 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
   const chatGenSpec = useEditorStore((s) => s.chatGenSpec);
   const setChatGenSpec = useEditorStore((s) => s.setChatGenSpec);
   const activeJob = useEditorStore((s) => s.activeJob);
+  const images = useModelsStore((s) => s.image);
+  const selectedImageId = useModelsStore((s) => s.selectedImageId);
+  const selectedLlmId = useModelsStore((s) => s.selectedLlmId);
   const { run } = useJobRunner();
 
   // Editable overrides for the genspec generate button.
@@ -122,7 +127,7 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
         setPendingError(err.error);
         setAssistantDraft("");
       },
-    });
+    }, { llmModel: selectedLlmId });
   }
 
   async function handleGenerateFromSpec() {
@@ -132,6 +137,12 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
       seed: seed.trim() === "" ? null : Number(seed),
       steps: steps.trim() === "" ? null : Number(steps),
     };
+    // The user's explicitly-picked image model wins over the LLM's suggestion, but only when
+    // it supports this spec's mode (e.g. don't force a txt2img-only model onto an edit job).
+    const picked = images.find((m) => m.id === selectedImageId) ?? null;
+    if (picked && picked.modes.includes(spec.mode)) {
+      spec.model = picked.id;
+    }
     try {
       setChatGenSpec(null);
       await run(projectId, spec, { pushUndo: true });
@@ -224,10 +235,14 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
         onSubmit={handleSubmit}
         className="border-t border-line p-3"
       >
-        {maskMode && (
+        {maskMode ? (
           <p className="mb-2 text-xs font-medium text-accent">
             Mask mode — type a prompt and press Generate redraw.
           </p>
+        ) : (
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <ModelPillRow placement="top" />
+          </div>
         )}
         <div className="flex items-end gap-2">
           <textarea

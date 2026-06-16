@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ModeTabs, type HomeMode } from "./ModeTabs";
 import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
-import { ModelSelect } from "../models/ModelPicker";
+import { ModelPillRow } from "../models/ModelPicker";
 import { useModelsStore } from "../../lib/models";
 import {
   createJob,
@@ -160,16 +160,7 @@ export function PromptBox() {
         )}
 
         <div className="flex items-center justify-between gap-3 border-t border-line px-2 pt-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-muted">
-              <span className="hidden sm:inline">Image</span>
-              <ModelSelect kind="image" />
-            </label>
-            <label className="flex items-center gap-2 text-sm text-muted">
-              <span className="hidden sm:inline">LLM</span>
-              <ModelSelect kind="llm" />
-            </label>
-          </div>
+          <ModelPillRow />
 
           <Button
             variant="primary"

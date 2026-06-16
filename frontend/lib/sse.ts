@@ -63,6 +63,7 @@ export function streamChat(
   projectId: string,
   message: string,
   handlers: ChatHandlers,
+  opts?: { llmModel?: string | null },
 ): ChatStreamControl {
   const controller = new AbortController();
 
@@ -74,7 +75,11 @@ export function streamChat(
           "Content-Type": "application/json",
           Accept: "text/event-stream",
         },
-        body: JSON.stringify({ project_id: projectId, message }),
+        body: JSON.stringify({
+          project_id: projectId,
+          message,
+          llm_model: opts?.llmModel ?? null,
+        }),
         signal: controller.signal,
       });
 
