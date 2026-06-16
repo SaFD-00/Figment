@@ -1,5 +1,5 @@
 """Model catalog: the unified list the frontend picker reads — local ComfyUI/Ollama models
-plus cloud OpenRouter/OpenAI models, for both image generation and chat/planner LLMs.
+plus cloud OpenRouter models, for both image generation and chat/planner LLMs.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def _serialize(m: ModelDef) -> dict:
         "label": m.label,
         "family": m.family,
         "kind": m.kind,                 # "image" | "llm"
-        "engine": m.engine,             # local-comfy | local-ollama | cloud-openrouter | cloud-openai
+        "engine": m.engine,             # local-comfy | local-ollama | cloud-openrouter
         "provider": m.provider,
         "vram_gb": m.vram_gb,
         "modes": [mode.value for mode in m.supports],

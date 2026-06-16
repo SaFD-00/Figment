@@ -110,8 +110,7 @@ export type ModelKind = "image" | "llm";
 export type ModelEngine =
   | "local-comfy"
   | "local-ollama"
-  | "cloud-openrouter"
-  | "cloud-openai";
+  | "cloud-openrouter";
 
 export interface Model {
   id: string;
@@ -134,7 +133,7 @@ export interface ModelCatalog {
 }
 
 export function isCloud(m: Model): boolean {
-  return m.engine === "cloud-openrouter" || m.engine === "cloud-openai";
+  return m.engine === "cloud-openrouter";
 }
 
 // A sensible default GenSpec. Spread and override per-mode.

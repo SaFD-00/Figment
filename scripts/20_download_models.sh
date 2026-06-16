@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Download GGUF/safetensors model weights into <repo>/AIStudio/models, in milestone order,
-# each step guarded by the disk budget. Run a stage:  ./20_download_models.sh [base|sdxl|edit|ref|all]
+# each step guarded by the disk budget. Run a stage:  ./20_download_models.sh [base|qwen|sdxl|edit|ref|all]
 #
 # ⚠ GGUF community repo IDs marked (VERIFY) — confirm on huggingface.co before a fresh machine run.
 # All downloads use `hf download` (huggingface_hub CLI). FP8 files are intentionally never fetched (Metal-incompatible).
@@ -59,6 +59,14 @@ stage_base() {   # Chroma (quality) + Z-Image (light) + shared encoders/vae  (~2
   dl Comfy-Org/z_image_turbo "split_files/loras/z_image_turbo_distill_patch_lora_bf16.safetensors" loras 1
 }
 
+stage_qwen() {   # Qwen-Image 2512 base (txt2img) + shared Qwen2.5-VL encoder + VAE + Lightning LoRA  (~22GB)
+  dl unsloth/Qwen-Image-2512-GGUF  "*Q4_K_M.gguf"  unet 13   # (VERIFY repo/file)
+  # Shared Qwen text-encoder + VAE — also used by qwen-edit (was previously missing from downloads).
+  dl Comfy-Org/Qwen-Image_ComfyUI  "split_files/text_encoders/qwen_2.5_vl_7b.safetensors"  clip 8  # (VERIFY)
+  dl Comfy-Org/Qwen-Image_ComfyUI  "split_files/vae/qwen_image_vae.safetensors"            vae  1  # (VERIFY)
+  dl lightx2v/Qwen-Image-Lightning "*8steps*.safetensors"  loras 1   # (VERIFY) 8-step distill LoRA
+}
+
 stage_sdxl() {   # Pony V6 (explicit NSFW, single-file) + SDXL inpaint  (~14GB)
   dl AiAF/ponyDiffusionV6XL_v6StartWithThisOne.safetensors \
      "ponyDiffusionV6XL_v6StartWithThisOne.safetensors"  checkpoints 7   # (verified single-file)
@@ -83,10 +91,11 @@ stage_ref() {    # Reference: SDXL ControlNet (canny+depth) + FLUX Redux + CLIP-
 
 case "$STAGE" in
   base) stage_base ;;
+  qwen) stage_qwen ;;
   sdxl) stage_sdxl ;;
   edit) stage_edit ;;
   ref)  stage_ref ;;
-  all)  stage_base; stage_sdxl; stage_edit; stage_ref ;;
-  *) echo "usage: $0 [base|sdxl|edit|ref|all]"; exit 1 ;;
+  all)  stage_base; stage_qwen; stage_sdxl; stage_edit; stage_ref ;;
+  *) echo "usage: $0 [base|qwen|sdxl|edit|ref|all]"; exit 1 ;;
 esac
 echo "✓ stage '$STAGE' done. Disk:"; df -g "$HOME" | awk 'NR==2{print $4" GB free"}'

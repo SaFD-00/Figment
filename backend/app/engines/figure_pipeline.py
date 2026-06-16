@@ -66,7 +66,7 @@ def figure_store() -> FileStore:
 def _job_settings(image_model: ModelDef, llm_model: Optional[ModelDef]):
     """Per-job FigGen Settings: provider + model ids from the user's selection."""
     base = figure_settings()
-    provider = image_model.provider or "auto"   # "openrouter" | "openai"
+    provider = image_model.provider or "openrouter"
     overrides: dict = {"provider_default": provider}
     if image_model.cloud_model_id:
         overrides["image_model"] = image_model.cloud_model_id

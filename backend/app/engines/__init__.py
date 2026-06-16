@@ -3,7 +3,7 @@
 Engines:
   • local-comfy   → ComfyUI diffusion graphs (app.comfy.*) — existing ImgGen path.
   • local-ollama  → Ollama chat LLM (app.llm.ollama_client).
-  • cloud-openrouter / cloud-openai → vendored FigGen providers (figure pipeline + image/LLM).
+  • cloud-openrouter → vendored FigGen providers on OpenRouter (figure pipeline + image/LLM).
 
 This module centralizes which engine handles a given model so routers/queue can dispatch
 without hard-coding provider checks.
@@ -13,7 +13,6 @@ from __future__ import annotations
 from app.config import get_settings
 from app.engines.cloud import cloud_key_present, figure_settings
 from app.models_catalog.registry import (
-    ENGINE_CLOUD_OPENAI,
     ENGINE_CLOUD_OPENROUTER,
     ENGINE_LOCAL_COMFY,
     ENGINE_LOCAL_OLLAMA,

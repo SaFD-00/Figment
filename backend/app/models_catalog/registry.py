@@ -1,14 +1,15 @@
 """Unified model registry — the single source of truth for every model the user can pick,
 spanning the LOCAL engine (ComfyUI diffusion + Ollama LLM) and the CLOUD engine
-(OpenRouter / OpenAI for both image generation and LLM).
+(OpenRouter for both image generation and LLM).
 
 Two catalogs:
-  • MODELS      — image-generation models (local ComfyUI + cloud APIs), keyed by id.
-  • LLM_MODELS  — chat/planner LLMs (local Ollama + cloud APIs), keyed by id.
+  • MODELS      — image-generation models (local ComfyUI + cloud OpenRouter), keyed by id.
+  • LLM_MODELS  — chat/planner LLMs (local Ollama + cloud OpenRouter), keyed by id.
 
 Local ComfyUI `files` names must match what scripts/20_download_models.sh places under
 ~/AIStudio/models/<dir>. FP8 files are never listed — they corrupt on Metal.
 Cloud models carry a `cloud_model_id` (the provider slug) and `provider` instead of files.
+Cloud slugs marked `# VERIFY` are best-guess preview names — overridable, confirm on OpenRouter.
 """
 from __future__ import annotations
 
@@ -21,13 +22,12 @@ from app.schemas.genspec import Mode
 ENGINE_LOCAL_COMFY = "local-comfy"
 ENGINE_LOCAL_OLLAMA = "local-ollama"
 ENGINE_CLOUD_OPENROUTER = "cloud-openrouter"
-ENGINE_CLOUD_OPENAI = "cloud-openai"
 
 
 @dataclass(frozen=True)
 class ModelDef:
     id: str
-    family: str                      # chroma|flux|sdxl|z-image|flux-fill|qwen-edit|kontext|cloud|ollama
+    family: str                      # qwen-image|chroma|flux|sdxl|z-image|flux-fill|qwen-edit|kontext|cloud|ollama
     label: str
     vram_gb: float
     supports: tuple[Mode, ...]
@@ -47,6 +47,16 @@ class ModelDef:
 # ── Image-generation models ────────────────────────────────────────────────
 MODELS: dict[str, ModelDef] = {
     # ── Local ComfyUI bases ────────────────────────────────────────────────
+    "qwen-image": ModelDef(
+        id="qwen-image", family="qwen-image", label="Qwen-Image 2512 (local · quality txt2img)",
+        vram_gb=13.0, supports=(Mode.txt2img, Mode.img2img),
+        files={"unet": "Qwen-Image-2512-Q4_K_M.gguf",   # VERIFY repo/filename
+               "clip": "qwen_2.5_vl_7b.safetensors", "vae": "qwen_image_vae.safetensors"},
+        uses_negative=False, nsfw=False,
+        defaults={"steps": 8, "cfg": 1.0, "sampler": "euler", "scheduler": "simple"},
+        template="txt2img_qwen",
+        builtin_loras=(("Qwen-Image-Lightning-8steps.safetensors", 1.0),),  # VERIFY 8-step distill LoRA
+    ),
     "chroma-hd": ModelDef(
         id="chroma-hd", family="chroma", label="Chroma 1-HD (local · uncensored, quality)",
         vram_gb=10.0, supports=(Mode.txt2img, Mode.img2img),
@@ -116,7 +126,19 @@ MODELS: dict[str, ModelDef] = {
         defaults={"steps": 24, "cfg": 3.5, "sampler": "euler", "scheduler": "simple"},
         template="redux_flux",
     ),
-    # ── Cloud image models (OpenRouter / OpenAI) ────────────────────────────
+    # ── Cloud image models (all OpenRouter) ─────────────────────────────────
+    "gpt-image-2": ModelDef(
+        id="gpt-image-2", family="cloud", label="GPT Image 2 (cloud · OpenRouter)",
+        vram_gb=0.0, supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.inpaint),
+        engine=ENGINE_CLOUD_OPENROUTER, kind="image", provider="openrouter",
+        cloud_model_id="openai/gpt-image-2",   # VERIFY slug
+    ),
+    "nano-banana-2": ModelDef(
+        id="nano-banana-2", family="cloud", label="Nano Banana 2 (cloud · OpenRouter)",
+        vram_gb=0.0, supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.reference),
+        engine=ENGINE_CLOUD_OPENROUTER, kind="image", provider="openrouter",
+        cloud_model_id="google/nano-banana-2",   # VERIFY slug
+    ),
     "seedream-4.5": ModelDef(
         id="seedream-4.5", family="cloud", label="SeeDream 4.5 (cloud · BioRender-grade)",
         vram_gb=0.0, supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.reference),
@@ -124,11 +146,23 @@ MODELS: dict[str, ModelDef] = {
         cloud_model_id="bytedance-seed/seedream-4.5",
         defaults={"aspect_ratio": "1:1", "image_size": "2K"},
     ),
-    "gpt-image-1.5": ModelDef(
-        id="gpt-image-1.5", family="cloud", label="GPT-Image 1.5 (cloud · transparent PNG)",
-        vram_gb=0.0, supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.inpaint),
-        engine=ENGINE_CLOUD_OPENAI, kind="image", provider="openai",
-        cloud_model_id="gpt-image-1.5",
+    "flux2-max": ModelDef(
+        id="flux2-max", family="cloud", label="FLUX.2 Max (cloud · OpenRouter)",
+        vram_gb=0.0, supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.reference),
+        engine=ENGINE_CLOUD_OPENROUTER, kind="image", provider="openrouter",
+        cloud_model_id="black-forest-labs/flux.2-max",
+    ),
+    "flux2-pro": ModelDef(
+        id="flux2-pro", family="cloud", label="FLUX.2 Pro (cloud · OpenRouter)",
+        vram_gb=0.0, supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.reference),
+        engine=ENGINE_CLOUD_OPENROUTER, kind="image", provider="openrouter",
+        cloud_model_id="black-forest-labs/flux.2-pro",
+    ),
+    "flux2-flex": ModelDef(
+        id="flux2-flex", family="cloud", label="FLUX.2 Flex (cloud · OpenRouter)",
+        vram_gb=0.0, supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.reference),
+        engine=ENGINE_CLOUD_OPENROUTER, kind="image", provider="openrouter",
+        cloud_model_id="black-forest-labs/flux.2-flex",
     ),
 }
 
@@ -144,28 +178,38 @@ LLM_MODELS: dict[str, ModelDef] = {
         vram_gb=3.4, supports=(), engine=ENGINE_LOCAL_OLLAMA, kind="llm", provider="ollama",
         cloud_model_id="hf.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
     ),
-    "minimax-m3": ModelDef(
-        id="minimax-m3", family="cloud", label="MiniMax M3 (cloud · OpenRouter)",
+    "gpt-oss-20b": ModelDef(
+        id="gpt-oss-20b", family="cloud", label="GPT-OSS 20B (cloud · OpenRouter, free)",
         vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
-        cloud_model_id="minimax/minimax-m3",
+        cloud_model_id="openai/gpt-oss-20b:free",
     ),
-    "claude-opus-4.8": ModelDef(
-        id="claude-opus-4.8", family="cloud", label="Claude Opus 4.8 (cloud · OpenRouter)",
+    "gpt-oss-120b": ModelDef(
+        id="gpt-oss-120b", family="cloud", label="GPT-OSS 120B (cloud · OpenRouter, free)",
         vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
-        cloud_model_id="anthropic/claude-opus-4.8",
+        cloud_model_id="openai/gpt-oss-120b:free",
     ),
-    "gpt-5.4": ModelDef(
-        id="gpt-5.4", family="cloud", label="GPT-5.4 (cloud · OpenAI)",
-        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENAI, kind="llm", provider="openai",
-        cloud_model_id="gpt-5.4",
+    "qwen3-plus": ModelDef(
+        id="qwen3-plus", family="cloud", label="Qwen3.7 Plus (cloud · OpenRouter)",
+        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
+        cloud_model_id="qwen/qwen3.7-plus",
+    ),
+    "qwen3-flash": ModelDef(
+        id="qwen3-flash", family="cloud", label="Qwen3.6 Flash (cloud · OpenRouter)",
+        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
+        cloud_model_id="qwen/qwen3.6-flash",
+    ),
+    "qwen3-35b-a3b": ModelDef(
+        id="qwen3-35b-a3b", family="cloud", label="Qwen3.6 35B-A3B (cloud · OpenRouter)",
+        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
+        cloud_model_id="qwen/qwen3.6-35b-a3b",
     ),
 }
 
 
 # Default IMAGE model chosen per mode when GenSpec.model is null (local-first; cloud fallback).
 DEFAULT_BY_MODE: dict[Mode, str] = {
-    Mode.txt2img: "chroma-hd",
-    Mode.img2img: "chroma-hd",
+    Mode.txt2img: "qwen-image",
+    Mode.img2img: "qwen-image",
     Mode.inpaint: "flux-fill",
     Mode.edit: "qwen-edit",
     Mode.controlnet: "pony-v6",
@@ -174,6 +218,7 @@ DEFAULT_BY_MODE: dict[Mode, str] = {
 
 # Lighter equivalents the orchestrator can downshift to under memory pressure.
 LIGHTER_EQUIVALENT: dict[str, str] = {
+    "qwen-image": "z-image",
     "chroma-hd": "z-image",
     "qwen-edit": "kontext",
     "flux-fill": "sdxl-inpaint",
@@ -206,4 +251,4 @@ def resolve_llm(model_id: Optional[str]) -> Optional[ModelDef]:
 
 
 def is_cloud(m: ModelDef) -> bool:
-    return m.engine in (ENGINE_CLOUD_OPENROUTER, ENGINE_CLOUD_OPENAI)
+    return m.engine == ENGINE_CLOUD_OPENROUTER
