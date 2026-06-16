@@ -13,15 +13,23 @@ Node availability is validated at startup against ComfyUI `/object_info`
 | txt2img (Chroma) | `build_txt2img_flux` | UnetLoaderGGUF → **CLIPLoaderGGUF type=chroma** (single T5) → FluxGuidance → KSampler(cfg=1) | Chroma ≠ FLUX dual-CLIP |
 | txt2img (FLUX-family) | `build_txt2img_flux` | UnetLoaderGGUF → DualCLIPLoaderGGUF type=flux → FluxGuidance | |
 | txt2img (Z-Image) | `build_txt2img_zimage` | ⚠ currently CheckpointLoaderSimple — Z-Image ships as UNET + Qwen-3-4B text encoder + VAE (`Comfy-Org/z_image_turbo` split files); path needs UNETLoader+CLIPLoader(qwen)+VAELoader rewrite before use |
+| txt2img (Qwen-Image) | `build_txt2img_qwen` | UnetLoaderGGUF → **CLIPLoaderGGUF type=qwen_image** → VAELoader → EmptySD3LatentImage → KSampler | Qwen-Image 2512 base (default txt2img/img2img) + optional 8-step Lightning LoRA; `_qwen_base` shared with img2img |
 | img2img | `build_img2img` | LoadImage → VAEEncode → KSampler(denoise) | `denoise` = reference-fidelity dial |
 | inpaint (FLUX Fill) | `build_inpaint_flux_fill` | LoadImage(src)+LoadImage(mask) → ImageToMask(red) → InpaintModelConditioning → KSampler | mask: white=regen, black=keep, dims=source |
 | inpaint (SDXL) | `build_inpaint_sdxl` | VAEEncodeForInpaint(grow_mask_by) → KSampler | fast fallback |
 | edit (Kontext) | `build_edit_kontext` | per ref: LoadImage→VAEEncode→ReferenceLatent (chained) → KSampler | single + multi reference |
 | edit (Qwen-Edit) | `build_edit_qwen` | UnetLoaderGGUF → CLIPLoaderGGUF type=qwen_image → TextEncodeQwenImageEdit → LoraLoader(Lightning 4-step) | heavy (13GB) → LLM unloaded first |
 | controlnet (SDXL) | `build_controlnet_sdxl` | preprocessor (Canny/Depth/Scribble/LineArt) → ControlNetLoader → ControlNetApplyAdvanced | **no openpose/DWPose/InstantID** (onnxruntime friction on arm64) |
-| reference / style (Redux) | `build_redux_flux` | StyleModelLoader + CLIPVisionLoader → CLIPVisionEncode → **StyleModelApply** (strength, strength_type) | |
+| reference / style (Redux) | `build_redux_flux` | StyleModelLoader + CLIPVisionLoader → per ref: CLIPVisionEncode → **StyleModelApply** (chained) | blends multiple style refs |
 | upscale | `build_upscale` | UpscaleModelLoader → ImageUpscaleWithModel | standalone; toolbar one-shot via `/assets/{id}/upscale` |
 | bg-remove / white-bg | — (not ComfyUI) | rembg/BiRefNet on CPU | keeps the Metal GPU free |
+
+## Reference images
+`GenSpec.reference_images` accepts up to `MAX_REFERENCE_IMAGES` (= 6; `backend/app/schemas/genspec.py`,
+mirrored in `frontend/lib/constants.ts`). `orchestrator/queue.py` uploads each to ComfyUI and fills
+`ctx.comfy_refs`. **Multi-ref**: Kontext (chained `ReferenceLatent`) and Redux (chained `StyleModelApply`)
+consume all refs. **First-ref-only**: `qwen-edit` and `controlnet` are single-input — they use the first
+reference and ignore the rest. Cloud models pass all refs as `reference_image_ids`.
 
 ## Execution
 `orchestrator/queue.py`: connect `/ws` (waits for the `__connected__` sentinel) → `queue_prompt`

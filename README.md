@@ -2,7 +2,7 @@
 
 **Figures & images, made effortless.** Figment unifies the FigGen scientific-figure pipeline
 and the ImgGen local image studio into one product — a clean Next.js UI over a single FastAPI
-backend that can drive **cloud models** (OpenRouter / OpenAI) and **local models**
+backend that can drive **cloud models** (OpenRouter) and **local models**
 (ComfyUI / Ollama), selectable per generation.
 
 ## Features
@@ -23,8 +23,9 @@ backend that can drive **cloud models** (OpenRouter / OpenAI) and **local models
 ## Models
 
 Pick any **image** model and any **chat/planner LLM** from a unified picker:
-- **Cloud** (OpenRouter/OpenAI): SeeDream 4.5, GPT-Image 1.5, MiniMax M3, Claude, GPT-5.x …
-- **Local** (ComfyUI/Ollama): Chroma, Z-Image, Pony, FLUX Fill/Kontext/Redux, Qwen-Edit, Qwen3.5 …
+- **Cloud image** (OpenRouter): GPT Image 2, Nano Banana 2, SeeDream 4.5, FLUX.2 Max/Pro/Flex
+- **Cloud LLM** (OpenRouter): GPT-OSS 20B/120B (free), Qwen3.7 Plus, Qwen3.6 Flash, Qwen3.6 35B-A3B
+- **Local** (ComfyUI/Ollama): Qwen-Image 2512, Chroma, Z-Image, Pony, FLUX Fill/Kontext/Redux, Qwen-Edit, Qwen3.5 …
 
 Cloud models route through the **figure pipeline** (structured FigureSpec → editable SVG/PPTX);
 local models route through **ComfyUI**. With no API key configured, the cloud path falls back to

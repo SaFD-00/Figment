@@ -15,7 +15,7 @@ FastAPI backend (:8000)
         │ HTTP /api/chat            │ HTTP /prompt + WS /ws
         ▼                           ▼
    Ollama (:11434)            ComfyUI (:8188, MPS, GGUF)
-   Qwen3.5-9B uncensored      Pony/Chroma/Z-Image/FLUX-Fill/Qwen-Edit/Kontext/ControlNet/Redux/RealESRGAN
+   Qwen3.5-9B uncensored      Qwen-Image/Pony/Chroma/Z-Image/FLUX-Fill/Qwen-Edit/Kontext/ControlNet/Redux/RealESRGAN
         └────────── shared 24GB unified memory (one big model at a time) ──────────┘
                                   ▼ writes
          <repo>/AIStudio/ (models, comfyui, outputs, db.sqlite, logs)  ← single runtime home (git-ignored)
@@ -28,6 +28,9 @@ FastAPI backend (:8000)
   (free ComfyUI / unload LLM as needed) → upload input images to ComfyUI → `builder.build()` →
   connect `/ws` (sentinel) → `queue_prompt` → map progress to SSE → fetch result from `/history`+`/view`
   → save asset + sidecar → `done`.
+- **Cloud path**: when the resolved image model is a cloud one, the job routes to the vendored
+  FigGen pipeline on **OpenRouter** (`engines/figure_pipeline.py`) — structured FigureSpec → editable
+  SVG/PPTX. Provider is unified on `OPENROUTER_API_KEY`; with no key it falls back to a mock provider.
 - **Region Redraw**: frontend exports a white-on-black mask at exact source dims → `POST /uploads`
   (source + mask) → `POST /jobs {mode:inpaint}` → `build_inpaint_flux_fill` (or SDXL).
 - **Toolbar one-shots**: `POST /assets/{id}/upscale|whitebg|removebg` (upscale via a tiny ComfyUI
