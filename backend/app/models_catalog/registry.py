@@ -42,6 +42,7 @@ class ModelDef:
     kind: str = "image"              # "image" | "llm"
     provider: Optional[str] = None   # cloud: "openrouter"|"openai"; local llm: "ollama"
     cloud_model_id: Optional[str] = None  # provider slug for cloud / ollama tag for local llm
+    vision: bool = False             # llm: accepts image input (multimodal) — gates image-enhance
 
 
 # ── Image-generation models ────────────────────────────────────────────────
@@ -147,30 +148,13 @@ LLM_MODELS: dict[str, ModelDef] = {
         vram_gb=3.4, supports=(), engine=ENGINE_LOCAL_OLLAMA, kind="llm", provider="ollama",
         cloud_model_id="hf.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
     ),
-    "gpt-oss-20b": ModelDef(
-        id="gpt-oss-20b", family="cloud", label="GPT-OSS 20B (cloud · OpenRouter, free)",
+    # Single cloud LLM: a free multimodal model so prompt-enhance can read an uploaded
+    # image (edit/reference modes). Gemma 4 31B tops OpenRouter's free vision tier.
+    "gemma-4-31b": ModelDef(
+        id="gemma-4-31b", family="cloud",
+        label="Gemma 4 31B (cloud · OpenRouter, multimodal, free)",
         vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
-        cloud_model_id="openai/gpt-oss-20b:free",
-    ),
-    "gpt-oss-120b": ModelDef(
-        id="gpt-oss-120b", family="cloud", label="GPT-OSS 120B (cloud · OpenRouter, free)",
-        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
-        cloud_model_id="openai/gpt-oss-120b:free",
-    ),
-    "qwen3-plus": ModelDef(
-        id="qwen3-plus", family="cloud", label="Qwen3.7 Plus (cloud · OpenRouter)",
-        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
-        cloud_model_id="qwen/qwen3.7-plus",
-    ),
-    "qwen3-flash": ModelDef(
-        id="qwen3-flash", family="cloud", label="Qwen3.6 Flash (cloud · OpenRouter)",
-        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
-        cloud_model_id="qwen/qwen3.6-flash",
-    ),
-    "qwen3-35b-a3b": ModelDef(
-        id="qwen3-35b-a3b", family="cloud", label="Qwen3.6 35B-A3B (cloud · OpenRouter)",
-        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
-        cloud_model_id="qwen/qwen3.6-35b-a3b",
+        cloud_model_id="google/gemma-4-31b-it:free", vision=True,
     ),
 }
 

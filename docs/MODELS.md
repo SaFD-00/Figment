@@ -45,10 +45,11 @@ ControlNet (SDXL, `controlnet/`): `xinsir/controlnet-canny-sdxl-1.0`, `…-depth
 - `qwen-9b-local` — `hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M` (~6.5GB, primary).
 - `qwen-4b-local` — `…Qwen3.5-4B…:Q4_K_M` (~3.4GB, light fallback).
 
-**Cloud (OpenRouter):** `gpt-oss-20b` (`openai/gpt-oss-20b:free`), `gpt-oss-120b` (`:free`),
-`qwen3-plus` (`qwen/qwen3.7-plus`), `qwen3-flash` (`qwen/qwen3.6-flash`), `qwen3-35b-a3b`
-(`qwen/qwen3.6-35b-a3b`). The FigGen pipeline's per-feature defaults (`FIGGEN_*_MODEL`) point at these;
-`FIGGEN_VISION_MODEL` must be a VL-capable slug (the gpt-oss models are text-only).
+**Cloud (OpenRouter):** `gemma-4-31b` (`google/gemma-4-31b-it:free`) — a single free **multimodal**
+(`vision=True`) model. Prompt Enhance attaches an uploaded edit/reference image to the message only when
+the route is this cloud vision model (`routers/prompt.py:_enhance_image_url` gates on
+`provider == "openrouter"` + `ModelDef.vision`); local Ollama routes degrade to text-only enhance.
+The FigGen pipeline keeps its own per-feature defaults (`FIGGEN_*_MODEL`) independent of this catalog.
 
 ## Download
 `scripts/20_download_models.sh [qwen|sdxl|edit|ref|all]`. Repo ids marked **(VERIFY)** are

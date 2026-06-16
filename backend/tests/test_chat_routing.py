@@ -29,12 +29,12 @@ def test_local_llm_maps_to_ollama_tag(monkeypatch):
 
 def test_cloud_llm_with_key_routes_to_openrouter(monkeypatch):
     _patch_key(monkeypatch, True)
-    assert _resolve_chat("qwen3-plus") == ("openrouter", "qwen/qwen3.7-plus")
+    assert _resolve_chat("gemma-4-31b") == ("openrouter", "google/gemma-4-31b-it:free")
 
 
 def test_cloud_llm_without_key_falls_back_to_default_ollama(monkeypatch):
     _patch_key(monkeypatch, False)
-    assert _resolve_chat("qwen3-plus") == ("ollama", None)
+    assert _resolve_chat("gemma-4-31b") == ("ollama", None)
 
 
 def test_none_uses_default_ollama(monkeypatch):

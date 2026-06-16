@@ -26,12 +26,12 @@ async def test_figure_pipeline_generates_editable_artifacts(tmp_path, monkeypatc
     fp.figure_store.cache_clear()
 
     spec = GenSpec(
-        mode=Mode.txt2img, model="seedream-4.5", llm_model="qwen3-plus",
+        mode=Mode.txt2img, model="seedream-4.5", llm_model="gemma-4-31b",
         prompt="A method diagram of a three-step assay",
     )
     result = await run_figure_job(
         spec=spec, project_id="p_test", job_id="j_test",
-        image_model=MODELS["seedream-4.5"], llm_model=LLM_MODELS["qwen3-plus"],
+        image_model=MODELS["seedream-4.5"], llm_model=LLM_MODELS["gemma-4-31b"],
     )
 
     assert len(result.preview_png) > 0
