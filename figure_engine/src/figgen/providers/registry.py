@@ -55,14 +55,10 @@ def get_llm(role: Role, settings: Settings, *, provider_override: str | None = N
 def get_image_client(
     settings: Settings,
     *,
-    hint: str | None = None,
     transparent: bool = False,
     provider_override: str | None = None,
 ) -> ImageClient:
-    """이미지 생성 클라이언트. OpenRouter(SeeDream 4.5 등)·mock 안전 폴백.
-
-    ``hint``는 호환용 no-op(과거 분기 잔재).
-    """
+    """이미지 생성 클라이언트. OpenRouter(SeeDream 4.5 등)·mock 안전 폴백."""
     provider = _resolve_provider("planner", settings, provider_override)
     if provider == "openrouter":
         from .openrouter_client import OpenRouterImageClient

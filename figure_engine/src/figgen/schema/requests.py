@@ -18,7 +18,7 @@ class GenerationRequest(BaseModel):
     style_preset: str = "nature_minimal"
     palette: list[str] = Field(default_factory=list)  # 수동 색 팔레트(비면 프리셋 사용)
     aspect: Literal["wide", "square", "tall"] | None = None  # 이미지-우선 종횡비 오버라이드
-    provider: Literal["mock", "openrouter", "openai", "auto"] = "auto"
+    provider: Literal["mock", "openrouter", "auto"] = "auto"
     max_critic_iters: int = 2
     research: bool = False  # 생성 전 웹검색 그라운딩(OpenRouter ':online') on/off
     data_refs: dict[str, str] = Field(default_factory=dict)  # data_ref → 파일 경로(차트용)

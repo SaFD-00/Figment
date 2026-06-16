@@ -24,7 +24,6 @@ class AssetRequest(BaseModel):
     transparency_required: bool = True
     target_size_pt: tuple[float, float] = (48.0, 48.0)
     quality: Literal["fast", "high"] = "fast"
-    provider_hint: str | None = None  # GPT-only: 'openai' (호환용 잔존 필드)
 
 
 class GenResult(BaseModel):
@@ -50,7 +49,6 @@ class AssetGenerator:
     async def generate(self, req: AssetRequest) -> GenResult:
         client = get_image_client(
             self.settings,
-            hint=req.provider_hint,
             transparent=req.transparency_required,
             provider_override=self.provider_override,
         )
@@ -81,7 +79,7 @@ class AssetGenerator:
     async def regenerate(self, asset_id: str, feedback: str, req: AssetRequest) -> GenResult:
         """부분 재생성 — feedback을 프롬프트에 병합, 캐시 우회(nonce), 버전 체인 연결."""
         client = get_image_client(
-            self.settings, hint=req.provider_hint, transparent=req.transparency_required,
+            self.settings, transparent=req.transparency_required,
             provider_override=self.provider_override)
         prompt = build_icon_prompt(f"{req.description}. {feedback}", req.style_preset,
                                    req.transparency_required)

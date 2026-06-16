@@ -106,12 +106,6 @@ def test_openai_strict_json_serializable():
 
 
 # ── 공통 ──────────────────────────────────────────────────────────────────────
-def test_supports_native_schema():
-    # GPT-only: openai만 네이티브 스키마 지원
-    assert st.supports_native_schema("openai", MiniSpec) is True
-    assert st.supports_native_schema("mock", MiniSpec) is False
-
-
 def test_json_mode_prompt_mentions_fields():
     prompt = st.build_json_mode_prompt(MiniSpec)
     assert "root" in prompt and "JSON" in prompt

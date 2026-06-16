@@ -35,7 +35,7 @@ STAGE_ORDER = [
 
 class ModelPrefs(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    provider: Literal["mock", "openrouter", "openai", "auto"] = "auto"
+    provider: Literal["mock", "openrouter", "auto"] = "auto"
     planner: str | None = None
     imager: str | None = None
     critic: str | None = None

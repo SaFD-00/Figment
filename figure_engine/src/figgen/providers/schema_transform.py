@@ -108,11 +108,6 @@ def _strict_node(node: Any) -> Any:
 # ─────────────────────────────────────────────────────────────────────────────
 # 공통 폴백
 # ─────────────────────────────────────────────────────────────────────────────
-def supports_native_schema(provider: str, model: type[BaseModel]) -> bool:
-    """provider가 해당 모델의 네이티브 스키마를 표현 가능한지. GPT-only라 openai만 True."""
-    return provider == "openai"  # OpenAI strict는 재귀 $ref 지원
-
-
 def build_json_mode_prompt(model: type[BaseModel]) -> str:
     """JSON-mode 폴백용 — 스키마 요약을 시스템 프롬프트에 삽입할 텍스트."""
     schema = model.model_json_schema()
