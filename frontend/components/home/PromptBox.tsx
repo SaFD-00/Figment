@@ -10,6 +10,7 @@ import { useModelsStore } from "../../lib/models";
 import {
   createJob,
   createProject,
+  enhancePrompt,
   uploadFile,
 } from "../../lib/api";
 import { defaultGenSpec, type GenMode } from "../../lib/types";
@@ -30,6 +31,8 @@ export function PromptBox() {
   const selectedLlmId = useModelsStore((s) => s.selectedLlmId);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
+  const [enhancing, setEnhancing] = useState(false);
+  const [prevPrompt, setPrevPrompt] = useState<string | null>(null); // original kept for undo
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -83,6 +86,35 @@ export function PromptBox() {
     }
   }
 
+  async function handleEnhance() {
+    if (enhancing || busy) return;
+    const text = prompt.trim();
+    if (!text) {
+      setError("Enter a prompt first.");
+      return;
+    }
+    setError(null);
+    setEnhancing(true);
+    try {
+      const { prompt: enhanced } = await enhancePrompt(text, {
+        llmModel: selectedLlmId,
+        imageModel: selectedImageId,
+      });
+      setPrevPrompt(prompt); // remember the original (untrimmed) for undo
+      setPrompt(enhanced);
+    } catch (e) {
+      setError((e as Error)?.message ?? "Enhance failed.");
+    } finally {
+      setEnhancing(false);
+    }
+  }
+
+  function handleUndo() {
+    if (prevPrompt === null) return;
+    setPrompt(prevPrompt);
+    setPrevPrompt(null);
+  }
+
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
     setFiles((prev) => [...prev, ...picked].slice(0, maxFiles));
@@ -103,7 +135,10 @@ export function PromptBox() {
       <div className="rounded-2xl border border-line bg-panel p-3 shadow-soft">
         <textarea
           value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          onChange={(e) => {
+            setPrompt(e.target.value);
+            if (prevPrompt !== null) setPrevPrompt(null); // editing drops the undo offer
+          }}
           placeholder={PLACEHOLDERS[mode]}
           rows={4}
           onKeyDown={(e) => {
@@ -162,15 +197,38 @@ export function PromptBox() {
         <div className="flex items-center justify-between gap-3 border-t border-line px-2 pt-3">
           <ModelPillRow />
 
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => void handleGenerate()}
-            disabled={busy}
-          >
-            {busy && <Spinner />}
-            {busy ? "Starting…" : "Generate"}
-          </Button>
+          <div className="flex items-center gap-2">
+            {prevPrompt !== null && (
+              <Button
+                variant="ghost"
+                size="md"
+                onClick={handleUndo}
+                disabled={enhancing || busy}
+                title="Restore your original prompt"
+              >
+                ↶ Undo
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => void handleEnhance()}
+              disabled={enhancing || busy || !prompt.trim()}
+              title="Let the selected LLM expand your prompt into rich detail"
+            >
+              {enhancing && <Spinner />}
+              {enhancing ? "Enhancing…" : "✨ Enhance"}
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => void handleGenerate()}
+              disabled={busy || enhancing}
+            >
+              {busy && <Spinner />}
+              {busy ? "Starting…" : "Generate"}
+            </Button>
+          </div>
         </div>
       </div>
 

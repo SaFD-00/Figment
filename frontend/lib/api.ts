@@ -111,6 +111,21 @@ export const listAllModels = () => jfetch<ModelCatalog>("/models/all");
 
 export const listLlmModels = () => jfetch<Model[]>("/models/llm");
 
+// ---------- Prompt ----------
+// Upgrade a short/vague idea into a rich English image-generation prompt via the selected LLM.
+export const enhancePrompt = (
+  prompt: string,
+  opts?: { llmModel?: string | null; imageModel?: string | null },
+) =>
+  jfetch<{ prompt: string }>("/prompt/enhance", {
+    method: "POST",
+    body: JSON.stringify({
+      prompt,
+      llm_model: opts?.llmModel ?? null,
+      image_model: opts?.imageModel ?? null,
+    }),
+  });
+
 // ---------- Uploads ----------
 export async function uploadFile(
   projectId: string,
