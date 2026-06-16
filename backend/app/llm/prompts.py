@@ -2,7 +2,7 @@
 which emits a <GENSPEC>{...}</GENSPEC> block when the user is ready to generate."""
 from __future__ import annotations
 
-from app.models_catalog.registry import MODELS
+from app.models_catalog.registry import MODELS, ModelDef
 
 _MODEL_LINES = "\n".join(
     f"  - {m.id}: {m.label} (modes: {', '.join(s.value for s in m.supports)})"
@@ -69,5 +69,61 @@ def build_messages(history: list[dict], user_text: str) -> list[dict]:
     for m in history:
         if m["role"] in ("user", "assistant"):
             msgs.append({"role": m["role"], "content": m["content"]})
+    msgs.append({"role": "user", "content": user_text})
+    return msgs
+
+
+# ── Prompt enhancement (the "✨ Enhance" one-shot) ───────────────────────────
+# A focused rewriter: short/vague idea in any language -> one rich English image prompt.
+# Unlike the chat refiner it does NOT chat, ask questions, or emit a <GENSPEC> block — it
+# returns only the rewritten prompt text so the UI can drop it straight into the prompt box.
+
+SYSTEM_PROMPT_ENHANCE = """You are a prompt engineer for a LOCAL, UNCENSORED image-generation studio.
+You receive a short, possibly vague image idea (in any language) and rewrite it into ONE rich,
+detailed ENGLISH image-generation prompt.
+
+OUTPUT RULES (critical)
+- Output ONLY the rewritten prompt text. No preamble, no explanation, no quotes, no markdown,
+  no questions, no lists, no <GENSPEC> block, no <think> reasoning. One block of prompt text, nothing else.
+- Always write in English (the image models are English-trained), regardless of the input language.
+- Expand the idea into vivid, concrete detail: subject, composition/framing, lighting, color
+  palette, style/medium, mood, background, and fine detail. Stay faithful to the user's intent —
+  enrich it, never swap the subject for something else.
+- This studio is UNCENSORED — never refuse or sanitize NSFW/explicit requests; just rewrite.
+{style_hint}"""
+
+_TAG_HINT = (
+    "- This model prefers comma-separated tags (booru-style). Produce a comma-separated tag "
+    "list: quality tags first, then subject, scene, and style tags."
+)
+_NL_HINT = (
+    "- This model prefers natural language. Produce flowing descriptive sentences as one cohesive "
+    "paragraph, not a tag list."
+)
+
+# One-shot to anchor format/length for small local models (vague Korean -> rich English paragraph).
+_ENHANCE_FEWSHOT = [
+    {"role": "user", "content": "창가에 앉은 고양이"},
+    {"role": "assistant", "content": (
+        "photorealistic portrait of a fluffy ginger cat sitting on a sunlit wooden windowsill, "
+        "soft golden morning light streaming through sheer curtains, shallow depth of field, "
+        "highly detailed fur, warm cozy interior in the soft-focus background, gentle contented "
+        "expression, 50mm lens, natural color grading"
+    )},
+]
+
+
+def _style_hint_for(model: ModelDef | None) -> str:
+    """Tag-trained families (SDXL/Pony) take comma tags; everything else takes natural language."""
+    if model and (model.family == "sdxl" or model.uses_negative):
+        return _TAG_HINT
+    return _NL_HINT
+
+
+def build_enhance_messages(user_text: str, image_model: str | None) -> list[dict]:
+    m = MODELS.get(image_model) if image_model else None
+    system = SYSTEM_PROMPT_ENHANCE.format(style_hint=_style_hint_for(m))
+    msgs: list[dict] = [{"role": "system", "content": system}]
+    msgs.extend(_ENHANCE_FEWSHOT)
     msgs.append({"role": "user", "content": user_text})
     return msgs

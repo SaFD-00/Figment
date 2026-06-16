@@ -12,7 +12,7 @@ from app.comfy.templates import validate_required_nodes
 from app.config import get_settings
 from app.db.database import close_db, init_db
 from app.logging import setup_logging
-from app.routers import assets, chat, jobs, models, projects, uploads
+from app.routers import assets, chat, jobs, models, projects, prompt, uploads
 
 log = logging.getLogger("imggen")
 
@@ -58,6 +58,7 @@ def create_app() -> FastAPI:
     app.include_router(assets.router)
     app.include_router(uploads.router)
     app.include_router(models.router)
+    app.include_router(prompt.router)
 
     @app.get("/health")
     async def health() -> dict:

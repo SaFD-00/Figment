@@ -4,8 +4,8 @@ Key presence is monkeypatched so the test is independent of whether the dev `.en
 OpenRouter key: cloud LLMs route to OpenRouter when a key exists and degrade to the local
 Ollama default when it doesn't; local LLMs map to their Ollama tag; unknown/None → default.
 """
-import app.routers.chat as chat
-from app.routers.chat import _resolve_chat
+import app.llm.routing as routing
+from app.llm.routing import resolve_chat as _resolve_chat
 
 
 class _FakeSettings:
@@ -17,7 +17,7 @@ class _FakeSettings:
 
 
 def _patch_key(monkeypatch, present: bool):
-    monkeypatch.setattr(chat, "figure_settings", lambda: _FakeSettings(present))
+    monkeypatch.setattr(routing, "figure_settings", lambda: _FakeSettings(present))
 
 
 def test_local_llm_maps_to_ollama_tag(monkeypatch):
