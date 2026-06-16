@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Pull the uncensored chat LLM (prompt-refinement) into Ollama.
+# Pull the uncensored multimodal chat LLM (prompt-refinement + vision enhance) into Ollama.
 set -euo pipefail
 
-PRIMARY="${OLLAMA_LLM:-hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M}"
+PRIMARY="${OLLAMA_LLM:-huihui_ai/qwen3-vl-abliterated:8b}"
 
-echo "Pulling chat LLM: $PRIMARY (~5GB)"
+echo "Pulling chat LLM: $PRIMARY (~6GB)"
 ollama pull "$PRIMARY"
 
 echo "✓ Ollama models:"; ollama list
