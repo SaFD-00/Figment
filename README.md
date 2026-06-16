@@ -11,6 +11,9 @@ backend that can drive **cloud models** (OpenRouter) and **local models**
 - **Text-to-Figure** — schematics from text or PDFs
 - **Image-to-Figure** — sketches or photos into illustrations
 - **Reference-to-Figure** — match the style/layout of a reference
+- **✨ Prompt Enhance** — one click turns a short idea (any language) into a rich, detailed **English**
+  prompt; your selected LLM does the rewrite (comma-tags for SDXL/Pony, natural language otherwise) and
+  **↶ undo** restores the original. Available in both the home composer and the editor chat.
 
 **Edit** — Refine without starting over
 - **Text Edit** — fix labels/legends on the image
@@ -30,7 +33,8 @@ config in `.env`** — it only holds API keys, service URLs, and fallback defaul
 - **Local** (ComfyUI/Ollama): Qwen-Image 2512, Chroma, Z-Image, Pony, FLUX Fill/Kontext/Redux, Qwen-Edit, Qwen3.5 …
 
 The selected model drives the whole pipeline: image generation, and the **chat/planner LLM follows
-your pick too** — a local LLM streams from **Ollama**, a cloud LLM from **OpenRouter**. Cloud image
+your pick too** — a local LLM streams from **Ollama**, a cloud LLM from **OpenRouter** (the same LLM
+also powers **✨ Prompt Enhance** in the composer). Cloud image
 models route through the **figure pipeline** (structured FigureSpec → editable SVG/PPTX); local image
 models route through **ComfyUI**. With no API key, cloud options are disabled in the picker and the
 app falls back to local/mock so it runs fully offline.

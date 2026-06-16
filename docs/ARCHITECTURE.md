@@ -24,9 +24,16 @@ FastAPI backend (:8000)
 ## Request flows
 - **Chat → generate**: `POST /chat` streams the LLM reply; the GENSPEC block is withheld from the
   visible stream and emitted as a `genspec` SSE event. The user presses Generate → `POST /jobs`.
-  The chat LLM follows the UI model pick (`ChatRequest.llm_model`): `chat.py:_resolve_chat` routes a
+  The chat LLM follows the UI model pick (`ChatRequest.llm_model`): `llm/routing.py:resolve_chat` routes a
   **local** LLM to its Ollama tag and a **cloud** LLM to OpenRouter (`openrouter_client.py`), degrading
   to the default Ollama model when no key is set — so model choice lives in the picker, not `.env`.
+- **Prompt enhance** (the composer's **✨ Enhance** button): `POST /prompt/enhance` rewrites a short/vague
+  idea into one rich **English** image prompt via the selected LLM, reusing the *same* routing
+  (`llm/routing.py` — shared with chat). It returns a single JSON `{prompt}` (no streaming, no GENSPEC,
+  no chat); `prompts.py:build_enhance_messages` tailors comma-tags vs natural language to the picked image
+  model, and `routers/prompt.py:_clean` strips `<think>` reasoning / quotes / labels. The frontend drops
+  the result into the prompt box with a one-step ↶ undo. (Distinct from the diagram's ComfyUI `/prompt`,
+  which is the local image engine on :8188.)
 - **Job execution** (`orchestrator/queue.py`): resolve model → `MemoryOrchestrator.ensure_ready_for`
   (free ComfyUI / unload LLM as needed) → upload input images to ComfyUI → `builder.build()` →
   connect `/ws` (sentinel) → `queue_prompt` → map progress to SSE → fetch result from `/history`+`/view`
