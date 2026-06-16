@@ -10,7 +10,7 @@ backend that can drive **cloud models** (OpenRouter) and **local models**
 **Generate** — Turn ideas into figures instantly
 - **Text-to-Figure** — schematics from text or PDFs
 - **Image-to-Figure** — sketches or photos into illustrations
-- **Reference-to-Figure** — match the style/layout of a reference
+- **Reference-to-Figure** — match the style/layout of one or more references (up to **3** images on local Qwen-Edit, **6** on cloud)
 - **Prompt Enhance** — one click turns a short idea (any language) into a rich, detailed **English**
   prompt; your selected LLM does the rewrite (comma-tags for SDXL/Pony, natural language otherwise) and
   **↶ undo** restores the original. Add an optional **"how to enhance"** note to steer the rewrite, and

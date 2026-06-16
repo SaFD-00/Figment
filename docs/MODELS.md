@@ -19,7 +19,7 @@ the **local** FLUX/Chroma families were dropped entirely (cloud FLUX.2 remains �
 | `qwen-image` | **default txt2img/img2img** · uncensored | `unsloth/Qwen-Image-2512-GGUF` (VERIFY) | `*Q4_K_M.gguf → unet` + abliterated Qwen2.5-VL clip + Qwen VAE | 13GB | + 8-step Lightning + NSFW LoRA; `build_txt2img_qwen` |
 | `pony-v6` | explicit-NSFW SDXL (txt2img/img2img/controlnet) | `AiAF/ponyDiffusionV6XL_v6StartWithThisOne.safetensors` | `…safetensors → checkpoints` | 7GB | single-file SDXL; `score_*` prefix |
 | `lustify-inpaint` | **inpaint** · nsfw | `andro-flock/LUSTIFY-SDXL-NSFW-checkpoint-v2-0-INPAINTING` (VERIFY) | `lustifySDXLNSFW_v20-inpainting.safetensors → checkpoints` | 7GB | genuine 9-ch SDXL inpaint, fp16; `build_inpaint_sdxl` |
-| `qwen-edit` | **edit + reference** · uncensored | `unsloth/Qwen-Image-Edit-2511-GGUF` + `lightx2v/…Lightning` | `*Q4_K_M.gguf → unet`; lightning → loras | 13GB | shares abliterated clip/VAE with `qwen-image`; + NSFW LoRA |
+| `qwen-edit` | **edit + reference** · uncensored | `unsloth/Qwen-Image-Edit-2511-GGUF` + `lightx2v/…Lightning` | `*Q4_K_M.gguf → unet`; lightning → loras | 13GB | shares abliterated clip/VAE with `qwen-image`; + NSFW LoRA; **multi-ref up to 3** (`TextEncodeQwenImageEditPlus`, positional Picture 1/2/3) |
 
 **Uncensored Qwen stack** (qwen-image/qwen-edit): the refusal bias lives in the text encoder, not the
 DiT — so the base Qwen DiT is paired with the **abliterated Qwen2.5-VL** TE
