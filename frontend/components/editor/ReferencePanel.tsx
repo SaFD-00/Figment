@@ -7,7 +7,8 @@ import { useRef, useState } from "react";
 import { uploadFile } from "../../lib/api";
 import { useEditorStore } from "../../lib/store";
 import { useJobRunner } from "../../lib/useJob";
-import { defaultGenSpec, type GenSpec } from "../../lib/types";
+import { defaultGenSpec, type GenSpec, type ReferenceImage } from "../../lib/types";
+import { MAX_REFERENCE_IMAGES } from "../../lib/constants";
 import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
 
@@ -25,7 +26,7 @@ const SUBMODES: { id: SubMode; label: string; desc: string }[] = [
 
 function buildSpec(
   subMode: SubMode,
-  assetId: string,
+  assetIds: string[],
   prompt: string,
 ): GenSpec {
   const spec = defaultGenSpec();
@@ -33,18 +34,22 @@ function buildSpec(
   if (subMode === "style") {
     spec.mode = "reference";
     spec.model = "redux";
-    spec.reference_images = [{ asset: assetId, role: "style", strength: 0.8 }];
+    spec.reference_images = assetIds.map(
+      (id): ReferenceImage => ({ asset: id, role: "style", strength: 0.8 }),
+    );
   } else if (subMode === "structure") {
     spec.mode = "controlnet";
     spec.model = "pony-v6";
     spec.controlnet_type = "canny";
-    spec.reference_images = [
-      { asset: assetId, role: "structure", strength: 0.8 },
-    ];
+    spec.reference_images = assetIds.map(
+      (id): ReferenceImage => ({ asset: id, role: "structure", strength: 0.8 }),
+    );
   } else {
     spec.mode = "edit";
     spec.model = "kontext";
-    spec.reference_images = [{ asset: assetId, role: "edit", strength: 0.85 }];
+    spec.reference_images = assetIds.map(
+      (id): ReferenceImage => ({ asset: id, role: "edit", strength: 0.85 }),
+    );
   }
   return spec;
 }
@@ -57,7 +62,7 @@ export function ReferencePanel({
   onClose: () => void;
 }) {
   const [subMode, setSubMode] = useState<SubMode>("style");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,9 +70,20 @@ export function ReferencePanel({
   const { run } = useJobRunner();
   const setMaskMode = useEditorStore((s) => s.setMaskMode);
 
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files ?? []);
+    setFiles((prev) => [...prev, ...picked].slice(0, MAX_REFERENCE_IMAGES));
+    setError(null);
+    e.target.value = ""; // allow re-selecting the same file
+  }
+
+  function removeFile(idx: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  }
+
   async function handleGenerate() {
     if (busy) return;
-    if (!file) {
+    if (files.length === 0) {
       setError("Upload a reference image.");
       return;
     }
@@ -78,13 +94,12 @@ export function ReferencePanel({
     setError(null);
     setBusy(true);
     try {
-      const asset = await uploadFile(
-        projectId,
-        "reference",
-        file,
-        file.name,
-      );
-      const spec = buildSpec(subMode, asset.id, prompt);
+      const assetIds: string[] = [];
+      for (const f of files) {
+        const asset = await uploadFile(projectId, "reference", f, f.name);
+        assetIds.push(asset.id);
+      }
+      const spec = buildSpec(subMode, assetIds, prompt);
       setMaskMode(false);
       await run(projectId, spec, { pushUndo: true });
       onClose();
@@ -135,26 +150,44 @@ export function ReferencePanel({
           {SUBMODES.find((s) => s.id === subMode)?.desc}
         </p>
 
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="mb-3 flex w-full items-center justify-center rounded-xl border border-dashed border-line bg-zinc-50 py-5 text-sm text-muted hover:border-accent hover:text-accent"
-        >
-          {file ? (
-            <span className="font-medium text-ink">{file.name}</span>
-          ) : (
-            "Click to upload reference"
-          )}
-        </button>
+        {files.length > 0 && (
+          <ul className="mb-2 flex flex-col gap-1">
+            {files.map((f, i) => (
+              <li
+                key={`${f.name}-${i}`}
+                className="flex items-center justify-between gap-2 rounded-lg border border-line bg-white px-3 py-1.5 text-sm"
+              >
+                <span className="truncate font-medium text-ink">{f.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeFile(i)}
+                  className="shrink-0 text-muted hover:text-red-600"
+                  aria-label={`Remove ${f.name}`}
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {files.length < MAX_REFERENCE_IMAGES && (
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="mb-3 flex w-full items-center justify-center rounded-xl border border-dashed border-line bg-zinc-50 py-5 text-sm text-muted hover:border-accent hover:text-accent"
+          >
+            {files.length === 0
+              ? "Click to upload reference"
+              : `Add another reference (${files.length}/${MAX_REFERENCE_IMAGES})`}
+          </button>
+        )}
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
+          multiple
           className="hidden"
-          onChange={(e) => {
-            setFile(e.target.files?.[0] ?? null);
-            setError(null);
-          }}
+          onChange={onPickFile}
         />
 
         <textarea

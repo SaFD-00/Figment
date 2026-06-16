@@ -19,6 +19,9 @@ class Mode(str, Enum):
 RefRole = Literal["style", "structure", "edit", "identity"]
 ControlType = Literal["canny", "depth", "scribble", "lineart"]
 
+# Max reference images per request. Mirror in frontend/lib/constants.ts — keep in sync.
+MAX_REFERENCE_IMAGES = 6
+
 
 class ReferenceImage(BaseModel):
     asset: str                       # asset id of an uploaded reference image
@@ -77,8 +80,8 @@ class GenSpec(BaseModel):
     @field_validator("reference_images")
     @classmethod
     def _max_refs(cls, v: list[ReferenceImage]) -> list[ReferenceImage]:
-        if len(v) > 4:
-            raise ValueError("at most 4 reference images")
+        if len(v) > MAX_REFERENCE_IMAGES:
+            raise ValueError(f"at most {MAX_REFERENCE_IMAGES} reference images")
         return v
 
     @model_validator(mode="after")
