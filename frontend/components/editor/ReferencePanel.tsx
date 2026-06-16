@@ -3,7 +3,7 @@
 // "Add Ref" panel (modal). Upload a reference image, choose a sub-mode, enter a
 // prompt, and generate. Each sub-mode maps to a specific GenSpec shape.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { uploadFile } from "../../lib/api";
 import { useEditorStore } from "../../lib/store";
 import { useModelsStore } from "../../lib/models";
@@ -14,7 +14,7 @@ import {
   type GenSpec,
   type ReferenceImage,
 } from "../../lib/types";
-import { MAX_REFERENCE_IMAGES } from "../../lib/constants";
+import { refCap } from "../../lib/constants";
 import { ModelPill } from "../models/ModelPicker";
 import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
@@ -81,10 +81,19 @@ export function ReferencePanel({
   const { run } = useJobRunner();
   const setMaskMode = useEditorStore((s) => s.setMaskMode);
   const getImageModelForMode = useModelsStore((s) => s.getImageModelForMode);
+  // Cap reacts to the per-sub-mode model: local qwen-edit (style/edit) → 3, cloud → 6.
+  const subModel = useModelsStore((s) => s.selectedImageForMode(SUBMODE_MODE[subMode]));
+  const maxRefs = refCap(subModel);
+  const isLocalRef = subModel?.engine === "local-comfy";
+
+  // Switching to a lower-cap model or sub-mode trims any now-excess uploads.
+  useEffect(() => {
+    setFiles((prev) => (prev.length > maxRefs ? prev.slice(0, maxRefs) : prev));
+  }, [maxRefs]);
 
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
-    setFiles((prev) => [...prev, ...picked].slice(0, MAX_REFERENCE_IMAGES));
+    setFiles((prev) => [...prev, ...picked].slice(0, maxRefs));
     setError(null);
     e.target.value = ""; // allow re-selecting the same file
   }
@@ -190,7 +199,7 @@ export function ReferencePanel({
             ))}
           </ul>
         )}
-        {files.length < MAX_REFERENCE_IMAGES && (
+        {files.length < maxRefs && (
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
@@ -198,8 +207,13 @@ export function ReferencePanel({
           >
             {files.length === 0
               ? "Click to upload reference"
-              : `Add another reference (${files.length}/${MAX_REFERENCE_IMAGES})`}
+              : `Add another reference (${files.length}/${maxRefs})`}
           </button>
+        )}
+        {isLocalRef && (
+          <p className="mb-3 px-1 text-xs text-muted">
+            Local model uses up to {maxRefs} reference images.
+          </p>
         )}
         <input
           ref={fileRef}

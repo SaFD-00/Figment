@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ModeTabs, type HomeMode } from "./ModeTabs";
 import { Button } from "../ui/Button";
@@ -15,7 +15,7 @@ import {
   uploadFile,
 } from "../../lib/api";
 import { defaultGenSpec, type GenMode } from "../../lib/types";
-import { MAX_REFERENCE_IMAGES } from "../../lib/constants";
+import { refCap } from "../../lib/constants";
 import { firstWords } from "../../lib/format";
 
 const PLACEHOLDERS: Record<HomeMode, string> = {
@@ -29,6 +29,8 @@ export function PromptBox() {
   const [mode, setMode] = useState<HomeMode>("generate");
   const [prompt, setPrompt] = useState("");
   const getImageModelForMode = useModelsStore((s) => s.getImageModelForMode);
+  // Subscribe to the resolved Model for reference mode so the cap reacts to model switches.
+  const refModel = useModelsStore((s) => s.selectedImageForMode("reference"));
   const selectedLlmId = useModelsStore((s) => s.selectedLlmId);
   const selectedLlm = useModelsStore((s) => s.selectedLlm);
   const [files, setFiles] = useState<File[]>([]);
@@ -40,8 +42,15 @@ export function PromptBox() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const showDropzone = mode === "edit" || mode === "reference";
-  // Edit consumes a single source image; reference accepts up to MAX_REFERENCE_IMAGES.
-  const maxFiles = mode === "reference" ? MAX_REFERENCE_IMAGES : 1;
+  // Edit consumes a single source image; reference accepts up to the selected model's cap
+  // (local qwen-edit → 3, cloud → 6).
+  const isLocalRef = mode === "reference" && refModel?.engine === "local-comfy";
+  const maxFiles = mode === "reference" ? refCap(refModel) : 1;
+
+  // Switching to a lower-cap model (e.g. cloud → local) trims any now-excess uploads.
+  useEffect(() => {
+    setFiles((prev) => (prev.length > maxFiles ? prev.slice(0, maxFiles) : prev));
+  }, [maxFiles]);
 
   const genMode: GenMode = useMemo(() => {
     if (mode === "edit") return "img2img";
@@ -193,6 +202,11 @@ export function PromptBox() {
                   ? `Click to add a reference (${files.length}/${maxFiles})`
                   : "Click to upload an image"}
               </button>
+            )}
+            {isLocalRef && (
+              <p className="mt-2 px-1 text-xs text-muted">
+                Local model uses up to {maxFiles} reference images.
+              </p>
             )}
             <input
               ref={fileInputRef}
