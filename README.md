@@ -33,7 +33,7 @@ editor chat, and reference panel), grouped Local / Cloud. **There is no model co
 it only holds API keys, service URLs, and fallback defaults.
 - **Cloud image** (OpenRouter): GPT Image 2, Nano Banana 2, SeeDream 4.5, FLUX.2 Max/Pro/Flex
 - **Cloud LLM** (OpenRouter): Gemma 4 31B — a free **multimodal** model, so Prompt Enhance can read an uploaded image
-- **Local** (ComfyUI/Ollama, uncensored): Qwen-Image 2512, Qwen-Edit (edit + reference), Pony V6, LUSTIFY SDXL inpaint, Qwen3.5 …
+- **Local** (ComfyUI/Ollama, uncensored): Qwen-Image 2512, Qwen-Edit (edit + reference), Pony V6, LUSTIFY SDXL inpaint, Qwen3.5-9B (chat/planner)
 
 The selected model drives the whole pipeline: image generation, and the **chat/planner LLM follows
 your pick too** — a local LLM streams from **Ollama**, a cloud LLM from **OpenRouter** (the same LLM

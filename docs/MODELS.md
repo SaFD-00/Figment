@@ -42,8 +42,7 @@ ControlNet (SDXL, `controlnet/`): `xinsir/controlnet-canny-sdxl-1.0`, `…-depth
 ## Chat / planner LLMs
 
 **Local (Ollama):**
-- `qwen-9b-local` — `hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M` (~6.5GB, primary).
-- `qwen-4b-local` — `…Qwen3.5-4B…:Q4_K_M` (~3.4GB, light fallback).
+- `qwen-9b-local` — `hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M` (~6.5GB) — the single local chat/planner LLM.
 
 **Cloud (OpenRouter):** `gemma-4-31b` (`google/gemma-4-31b-it:free`) — a single free **multimodal**
 (`vision=True`) model. Prompt Enhance attaches an uploaded edit/reference image to the message only when

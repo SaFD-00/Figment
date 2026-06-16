@@ -143,11 +143,6 @@ LLM_MODELS: dict[str, ModelDef] = {
         vram_gb=6.5, supports=(), engine=ENGINE_LOCAL_OLLAMA, kind="llm", provider="ollama",
         cloud_model_id="hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
     ),
-    "qwen-4b-local": ModelDef(
-        id="qwen-4b-local", family="ollama", label="Qwen3.5-4B Uncensored (local · Ollama, light)",
-        vram_gb=3.4, supports=(), engine=ENGINE_LOCAL_OLLAMA, kind="llm", provider="ollama",
-        cloud_model_id="hf.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
-    ),
     # Single cloud LLM: a free multimodal model so prompt-enhance can read an uploaded
     # image (edit/reference modes). Gemma 4 31B tops OpenRouter's free vision tier.
     "gemma-4-31b": ModelDef(

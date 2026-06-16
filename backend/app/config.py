@@ -30,7 +30,6 @@ class Settings(BaseSettings):
     backend_port: int = 8000
 
     ollama_llm: str = "hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M"
-    ollama_llm_fallback: str = "hf.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive:Q4_K_M"
 
     # Memory budget for the 24GB M4 Pro (usable unified memory for ML after OS overhead)
     vram_budget_gb: float = 19.0
