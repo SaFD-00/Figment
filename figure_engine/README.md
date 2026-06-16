@@ -42,7 +42,7 @@ uv venv .venv --python 3.12
 uv pip install --python .venv/bin/python -e ".[dev]"
 
 # 3) API 키 (없어도 mock provider로 오프라인 동작) — OpenRouter
-cp .env.example .env   # OPENROUTER_API_KEY 입력 (선택; SeeDream 4.5 + MiniMax M3)
+cp .env.example .env   # OPENROUTER_API_KEY 입력 (선택; SeeDream 4.5 + Qwen3.7 Plus)
 ```
 
 설치가 끝나면 `figgen` 실행 파일은 `.venv/bin/figgen`에 생긴다. 아래 예시는 모두 이 경로를 쓴다.
@@ -99,13 +99,13 @@ cp .env.example .env   # OPENROUTER_API_KEY 입력 (선택; SeeDream 4.5 + MiniM
 | `description` (위치 인자) | — | figure 설명 또는 논문 메서드 텍스트 |
 | `--type TYPE` | 자동 분류 | `method_diagram` · `concept` · `chart` · `graphical_abstract` · `scientific_illustration` |
 | `--style NAME` | `nature_minimal` | 스타일 프리셋 (아래 목록) |
-| `--provider P` | `mock`* | `mock` · `openrouter` · `openai` · `auto` (`FIGGEN_PROVIDER`) |
+| `--provider P` | `openrouter`* | `mock` · `openrouter` · `auto` (`FIGGEN_PROVIDER`) |
 | `--dpi N` | `192` | PNG/JPG 래스터 DPI |
 | `--format F` | `png` | 래스터 포맷 (`png` · `jpg`) |
 | `--box-icons` | off | `method_diagram` 각 박스에 작은 일러스트 생성(박스당 이미지 1콜, 비용↑) |
 | `-o, --out DIR` | `figgen_out` | 출력 디렉토리 |
 
-\* `--provider` 미지정 시 `.env`의 `FIGGEN_PROVIDER`(기본 `mock`)를 따른다. `auto`는 키가 있으면 OpenRouter→OpenAI, 없으면 `mock`으로 안전 폴백한다.
+\* `--provider` 미지정 시 `.env`의 `FIGGEN_PROVIDER`(기본 `openrouter`)를 따른다. 키가 없으면(또는 `auto`) `mock`으로 안전 폴백한다.
 
 ```bash
 # FigureLabs식 풍부한 장면 일러스트 (이미지 모델 필요 → --provider openrouter)
@@ -134,11 +134,10 @@ cp .env.example .env   # OPENROUTER_API_KEY 입력 (선택; SeeDream 4.5 + MiniM
 | `--no-pptx` | off | PPTX 생략 |
 | `--no-png` | off | 미리보기 PNG 생략 |
 
-## provider 모드 (OpenRouter 기본)
-- `mock`(기본/키없음 폴백) — 키 불필요. 타입별 캔드 `FigureSpec` + PIL placeholder 에셋으로 오프라인 구동.
-- `openrouter` — `.env`에 `OPENROUTER_API_KEY` 입력 후 사용. LLM `minimax/minimax-m3`(planner·classifier·critic(비전)·chart·research), 이미지 **`bytedance-seed/seedream-4.5`**(SeeDream 4.5). 키 없으면 `mock` 폴백.
-- `openai` — 선택적 폴백. `.env`에 `OPENAI_API_KEY` 입력 시 `gpt-image`/`gpt-5.x` 사용.
-- `auto` — 키가 있으면 OpenRouter→OpenAI, 없으면 `mock`.
+## provider 모드 (OpenRouter 단일)
+- `openrouter`(기본) — `.env`에 `OPENROUTER_API_KEY` 입력 후 사용. LLM `qwen/qwen3.7-plus`(planner·classifier·critic(비전)·chart·research), 이미지 **`bytedance-seed/seedream-4.5`**(SeeDream 4.5). 키 없으면 `mock` 폴백.
+- `mock`(키없음 폴백) — 키 불필요. 타입별 캔드 `FigureSpec` + PIL placeholder 에셋으로 오프라인 구동.
+- `auto` — 키가 있으면 OpenRouter, 없으면 `mock`.
 
 > 모든 모델 ID는 `FIGGEN_*` 환경변수로 오버라이드 가능. **주의**: SeeDream은 투명·mask 인페인트 미지원
 > (Region Redraw degrade); critic/sketch/참조분석의 `FIGGEN_VISION_MODEL`은 비전 가능 OpenRouter 모델 권장.
@@ -177,16 +176,15 @@ cp .env.example .env   # OPENROUTER_API_KEY 입력 (선택; SeeDream 4.5 + MiniM
 | 변수 | 기본값 | 설명 |
 |---|---|---|
 | `OPENROUTER_API_KEY` | — | OpenRouter 키(비우면 mock 폴백) |
-| `OPENAI_API_KEY` | — | (선택) OpenAI 폴백 키 |
-| `FIGGEN_PROVIDER` | `openrouter` | 기본 provider (`mock`·`openrouter`·`openai`·`auto`) |
+| `FIGGEN_PROVIDER` | `openrouter` | 기본 provider (`mock`·`openrouter`·`auto`) |
 | `FIGGEN_OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | OpenRouter 베이스 URL |
-| `FIGGEN_PLANNER_MODEL` | `minimax/minimax-m3` | planner 모델 |
-| `FIGGEN_CLASSIFIER_MODEL` | `minimax/minimax-m3` | 분류기 모델 |
-| `FIGGEN_VISION_MODEL` | `minimax/minimax-m3` | critic(VLM)·sketch 비전 모델 (비전 가능 모델 권장) |
-| `FIGGEN_CHART_CODER_MODEL` | `minimax/minimax-m3` | 차트 코드 생성 모델 |
+| `FIGGEN_PLANNER_MODEL` | `qwen/qwen3.7-plus` | planner 모델 |
+| `FIGGEN_CLASSIFIER_MODEL` | `qwen/qwen3.6-flash` | 분류기 모델 |
+| `FIGGEN_VISION_MODEL` | `qwen/qwen3.7-plus` | critic(VLM)·sketch 비전 모델 (VL 멀티모달 모델 필요) |
+| `FIGGEN_CHART_CODER_MODEL` | `qwen/qwen3.7-plus` | 차트 코드 생성 모델 |
 | `FIGGEN_DEFAULT_IMAGER` | `bytedance-seed/seedream-4.5` | 이미지(생성·edit) 모델 |
 | `FIGGEN_RESEARCH_ENABLED` | `false` | 웹검색 그라운딩 기본값 |
-| `FIGGEN_RESEARCH_MODEL` | `minimax/minimax-m3` | research(`:online`) 모델 |
+| `FIGGEN_RESEARCH_MODEL` | `qwen/qwen3.7-plus` | research(`:online`) 모델 |
 | `FIGGEN_RESEARCH_MAX_CHARS` | `4000` | 리서치 컨텍스트 최대 길이 |
 | `FIGGEN_CRITIC_ENABLED` | `true` | critic 보정 루프 on/off |
 | `FIGGEN_MAX_CRITIC_ITERS` | `2` | critic 최대 반복 |
@@ -228,7 +226,7 @@ out/
 
 ## 트러블슈팅
 - **`OSError: cannot load library 'libcairo...'` / PNG 생성 실패** → macOS는 `brew install cairo`. 그래도 안 되면 venv 재생성.
-- **`--provider openai`인데 결과가 placeholder** → `.env`의 `OPENAI_API_KEY`가 비어 있어 `mock`으로 폴백된 것. 키 입력 후 재실행(서버는 재기동).
+- **`--provider openrouter`인데 결과가 placeholder** → `.env`의 `OPENROUTER_API_KEY`가 비어 있어 `mock`으로 폴백된 것. 키 입력 후 재실행(서버는 재기동).
 - **포트 8736 충돌** → `serve`는 자동으로 +1씩 최대 20회 빈 포트를 찾는다. 콘솔에 출력된 실제 URL을 확인하거나 `--port`로 지정.
 - **Drive 동기화 충돌/느림** → Drive 앱에서 `.venv/`·`outputs/` 동기화 제외, 또는 `FIGGEN_OUTPUTS=~/.figgen/outputs`로 산출물을 홈으로 분리.
 - **다른 기기에서 venv가 안 됨** → venv는 플랫폼 의존이라 동기화로 공유 불가. 기기마다 `uv venv` + `uv pip install`로 재생성.

@@ -1,8 +1,7 @@
 """역할(planner/critic/classifier/chart_coder/editor/research)→클라이언트 라우팅.
 
-실 provider는 **OpenRouter**(LLM=minimax/minimax-m3, 이미지=bytedance-seed/seedream-4.5).
-OpenAI는 선택적 폴백으로 유지한다. provider='auto'/키 없음/명시 mock이면 mock으로 안전
-폴백(오프라인 구동).
+실 provider는 **OpenRouter 단일**(LLM=qwen/qwen3.7-plus 등, 이미지=bytedance-seed/seedream-4.5).
+provider='auto'/키 없음/명시 mock이면 mock으로 안전 폴백(오프라인 구동).
 """
 
 from __future__ import annotations
@@ -33,13 +32,9 @@ def _model_for(role: str, settings: Settings) -> str:
 def _resolve_provider(role: str, settings: Settings, override: str | None) -> str:
     provider = override or settings.provider_default
     if provider == "auto":
-        if settings.has_key("openrouter"):
-            return "openrouter"
-        if settings.has_key("openai"):
-            return "openai"
-        return "mock"
+        return "openrouter" if settings.has_key("openrouter") else "mock"
     if provider != "mock" and not settings.has_key(provider):
-        return "mock"  # 키 없음 → 안전 폴백
+        return "mock"  # 키 없음(또는 미지원 provider) → 안전 폴백
     return provider
 
 
@@ -54,10 +49,6 @@ def get_llm(role: Role, settings: Settings, *, provider_override: str | None = N
             model,
             base_url=settings.openrouter_base_url,
         )
-    if provider == "openai":
-        from .openai_client import OpenAIClient
-
-        return OpenAIClient(settings.openai_api_key.get_secret_value(), model)
     return MockLLMClient()
 
 
@@ -68,7 +59,7 @@ def get_image_client(
     transparent: bool = False,
     provider_override: str | None = None,
 ) -> ImageClient:
-    """이미지 생성 클라이언트. OpenRouter(SeedReam)·OpenAI(gpt-image)·mock 안전 폴백.
+    """이미지 생성 클라이언트. OpenRouter(SeeDream 4.5 등)·mock 안전 폴백.
 
     ``hint``는 호환용 no-op(과거 분기 잔재).
     """
@@ -81,8 +72,4 @@ def get_image_client(
             settings.image_model,
             base_url=settings.openrouter_base_url,
         )
-    if provider == "openai" and settings.has_key("openai"):
-        from .openai_client import OpenAIImageClient
-
-        return OpenAIImageClient(settings.openai_api_key.get_secret_value(), settings.image_model)
     return MockImageClient()

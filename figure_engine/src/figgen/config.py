@@ -1,7 +1,7 @@
 """`.env` 기반 설정 — API 키, 역할별 모델 ID, 서버, 경로를 단일 통합한다.
 
 모든 모델 ID는 환경변수로 오버라이드 가능하다(모델명 preview 불안정 대비).
-provider 기본값은 ``mock``으로, 키 없이도 파이프라인 전체가 오프라인 구동된다.
+provider는 **OpenRouter 단일**이며, 키가 없으면 ``mock``으로 안전 폴백해 오프라인 구동된다.
 """
 
 from __future__ import annotations
@@ -38,45 +38,40 @@ class Settings(BaseSettings):
         populate_by_name=True,
     )
 
-    # ── API 키 (OpenRouter 기본 + OpenAI 선택 폴백 + mock 오프라인) ────────────
+    # ── API 키 (OpenRouter 단일 + mock 오프라인 폴백) ─────────────────────────
     openrouter_api_key: SecretStr | None = Field(
         default=None, validation_alias=AliasChoices("OPENROUTER_API_KEY", "openrouter_api_key")
     )
-    openai_api_key: SecretStr | None = Field(
-        default=None, validation_alias=AliasChoices("OPENAI_API_KEY", "openai_api_key")
-    )
 
     # ── provider/모델 기본값 (모두 FIGGEN_* 로 오버라이드) ────────────────────
-    # provider: mock | openrouter | openai | auto. 모델 ID는 OpenRouter 슬러그.
+    # provider: mock | openrouter | auto. 모델 ID는 OpenRouter 슬러그.
     provider_default: str = Field(
-        default="mock", validation_alias=AliasChoices("FIGGEN_PROVIDER", "provider_default")
+        default="openrouter", validation_alias=AliasChoices("FIGGEN_PROVIDER", "provider_default")
     )
     openrouter_base_url: str = Field(
         default="https://openrouter.ai/api/v1",
         validation_alias=AliasChoices("FIGGEN_OPENROUTER_BASE_URL", "openrouter_base_url"),
     )
     planner_model: str = Field(
-        default="minimax/minimax-m3",
+        default="qwen/qwen3.7-plus",
         validation_alias=AliasChoices("FIGGEN_PLANNER_MODEL", "planner_model"),
     )
     classifier_model: str = Field(
-        default="minimax/minimax-m3",
+        default="qwen/qwen3.6-flash",
         validation_alias=AliasChoices("FIGGEN_CLASSIFIER_MODEL", "classifier_model"),
     )
-    # critic(VLM)·sketch·참조 분석 비전 호출용 — 비전 가능 OpenRouter 모델 권장.
+    # critic(VLM)·sketch·참조 분석 비전 호출용 — 멀티모달(VL) 가능 모델 필요.
     vision_model: str = Field(
-        default="minimax/minimax-m3",
+        default="qwen/qwen3.7-plus",  # VERIFY: VL(멀티모달) 가능 슬러그인지 확인
         validation_alias=AliasChoices("FIGGEN_VISION_MODEL", "FIGGEN_CRITIC_MODEL", "vision_model"),
     )
     chart_coder_model: str = Field(
-        default="minimax/minimax-m3",
+        default="qwen/qwen3.7-plus",
         validation_alias=AliasChoices("FIGGEN_CHART_CODER_MODEL", "chart_coder_model"),
     )
     image_model: str = Field(
         default="bytedance-seed/seedream-4.5",
-        validation_alias=AliasChoices(
-            "FIGGEN_DEFAULT_IMAGER", "image_model", "image_model_openai"
-        ),
+        validation_alias=AliasChoices("FIGGEN_DEFAULT_IMAGER", "image_model"),
     )
 
     # ── research (웹검색 그라운딩) ────────────────────────────────────────────
@@ -86,7 +81,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("FIGGEN_RESEARCH_ENABLED", "research_enabled_default"),
     )
     research_model: str = Field(
-        default="minimax/minimax-m3",
+        default="qwen/qwen3.7-plus",
         validation_alias=AliasChoices("FIGGEN_RESEARCH_MODEL", "research_model"),
     )
     research_max_chars: int = Field(
@@ -149,13 +144,11 @@ class Settings(BaseSettings):
     def available_providers(self) -> set[str]:
         """키 보유 여부로 사용 가능한 provider 집합. mock은 항상 가용.
 
-        빈 문자열 키(`.env`에 ``OPENROUTER_API_KEY=`` 등)는 미보유로 취급한다.
+        빈 문자열 키(`.env`에 ``OPENROUTER_API_KEY=``)는 미보유로 취급한다.
         """
         providers = {"mock"}
         if self.openrouter_api_key and self.openrouter_api_key.get_secret_value().strip():
             providers.add("openrouter")
-        if self.openai_api_key and self.openai_api_key.get_secret_value().strip():
-            providers.add("openai")
         return providers
 
     def has_key(self, provider: str) -> bool:

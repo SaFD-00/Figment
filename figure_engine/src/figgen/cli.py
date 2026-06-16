@@ -45,7 +45,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     pg.add_argument("--style", default="nature_minimal", help="스타일 프리셋")
     pg.add_argument(
-        "--provider", default=None, choices=["mock", "openrouter", "openai", "auto"],
+        "--provider", default=None, choices=["mock", "openrouter", "auto"],
         help="LLM provider",
     )
     pg.add_argument(
