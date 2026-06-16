@@ -28,14 +28,9 @@ clone() {  # clone <url> <dir>
   fi
 }
 
-# GGUF unet/clip loaders — required by every FLUX/Chroma/Qwen template
+# GGUF unet/clip loaders — required by the Qwen GGUF templates (incl. the abliterated TE)
 clone https://github.com/city96/ComfyUI-GGUF                       ComfyUI-GGUF
 # ControlNet preprocessors (we use only canny/depth/scribble/lineart — torch-only)
 clone https://github.com/Fannovel16/comfyui_controlnet_aux         comfyui_controlnet_aux
-# Multi-reference latent injection (1-4 images, per-image strength) — Kontext/Flux/Qwen
-clone https://github.com/shootthesound/comfyui-ReferenceLatentPlus  comfyui-ReferenceLatentPlus
-# FLUX Redux strength control (base Redux is built into ComfyUI core StyleModel nodes)
-clone https://github.com/kaibioinfo/ComfyUI_AdvancedRefluxControl   ComfyUI_AdvancedRefluxControl
 
 echo "✓ Custom nodes installed (onnxruntime-dependent nodes intentionally skipped)."
-echo "  Note: FLUX.1-Kontext is supported natively by recent ComfyUI core; no extra node needed."

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Download GGUF/safetensors model weights into <repo>/AIStudio/models, in milestone order,
-# each step guarded by the disk budget. Run a stage:  ./20_download_models.sh [base|qwen|sdxl|edit|ref|all]
+# each step guarded by the disk budget. Run a stage:  ./20_download_models.sh [qwen|sdxl|edit|ref|all]
 #
 # ⚠ GGUF community repo IDs marked (VERIFY) — confirm on huggingface.co before a fresh machine run.
 # All downloads use `hf download` (huggingface_hub CLI). FP8 files are intentionally never fetched (Metal-incompatible).
@@ -24,7 +24,7 @@ fi
 
 AISTUDIO_HOME="${AISTUDIO_HOME:-$HERE/../AIStudio}"
 M="$AISTUDIO_HOME/models"
-STAGE="${1:-base}"
+STAGE="${1:-qwen}"
 
 # Resolve an `hf` CLI binary (prefer PATH, then uv-tool, then the ComfyUI venv).
 HF_BIN=""
@@ -46,56 +46,46 @@ dl() {  # dl <repo_id> <filename-glob> <dest-subdir> <approx_gb>
   "$HF_BIN" download "$repo" "$file" --local-dir "$M/$sub"
 }
 
-stage_base() {   # Chroma (quality) + Z-Image (light) + shared encoders/vae  (~24GB)
-  # Shared FLUX-family text encoders + VAE (Chroma/Flux-Fill/Kontext/Redux all need these)
-  dl city96/t5-v1_1-xxl-encoder-gguf      "t5-v1_1-xxl-encoder-Q5_K_M.gguf"  clip 4
-  dl comfyanonymous/flux_text_encoders    "clip_l.safetensors"               clip 1
-  dl black-forest-labs/FLUX.1-schnell     "ae.safetensors"                   vae  1
-  # Chroma1-HD (Q5_K_M GGUF) — PRIMARY quality/uncensored  (repo verified)
-  dl silveroxides/Chroma1-HD-GGUF         "Chroma1-HD-Q5_K_M.gguf"           unet 8
-  # Z-Image-Turbo (ComfyUI split files: UNET + Qwen text encoder + VAE + distill LoRA)
-  dl Comfy-Org/z_image_turbo "split_files/diffusion_models/z_image_turbo_bf16.safetensors"      unet 6
-  dl Comfy-Org/z_image_turbo "split_files/text_encoders/qwen_3_4b.safetensors"                  clip 4
-  dl Comfy-Org/z_image_turbo "split_files/loras/z_image_turbo_distill_patch_lora_bf16.safetensors" loras 1
-}
-
-stage_qwen() {   # Qwen-Image 2512 base (txt2img) + shared Qwen2.5-VL encoder + VAE + Lightning LoRA  (~22GB)
+stage_qwen() {   # Qwen-Image 2512 (txt2img/img2img) — uncensored stack: DiT GGUF + abliterated
+                 # Qwen2.5-VL text encoder (+mmproj) + Qwen VAE + Lightning + NSFW LoRA  (~21GB)
   dl unsloth/Qwen-Image-2512-GGUF  "*Q4_K_M.gguf"  unet 13   # (VERIFY repo/file)
-  # Shared Qwen text-encoder + VAE — also used by qwen-edit (was previously missing from downloads).
-  dl Comfy-Org/Qwen-Image_ComfyUI  "split_files/text_encoders/qwen_2.5_vl_7b.safetensors"  clip 8  # (VERIFY)
-  dl Comfy-Org/Qwen-Image_ComfyUI  "split_files/vae/qwen_image_vae.safetensors"            vae  1  # (VERIFY)
+  # Abliterated Qwen2.5-VL text encoder lifts the refusal bias; mmproj is its vision projector.
+  # The resulting .gguf filename must match registry files["clip"] — rename if it differs. (VERIFY)
+  dl mradermacher/Qwen2.5-VL-7B-Instruct-abliterated-GGUF "*Q4_K_M.gguf"  clip 5
+  dl mradermacher/Qwen2.5-VL-7B-Instruct-abliterated-GGUF "*mmproj*"      clip 1
+  # Qwen VAE — shared with qwen-edit.
+  dl Comfy-Org/Qwen-Image_ComfyUI  "split_files/vae/qwen_image_vae.safetensors"  vae 1   # (VERIFY)
   dl lightx2v/Qwen-Image-Lightning "*8steps*.safetensors"  loras 1   # (VERIFY) 8-step distill LoRA
+  dl goonsai/qwen-image-loras      "qwen_MCNL_v1.0.safetensors"  loras 1   # (VERIFY) NSFW LoRA
 }
 
-stage_sdxl() {   # Pony V6 (explicit NSFW, single-file) + SDXL inpaint  (~14GB)
+stage_sdxl() {   # Pony V6 (explicit NSFW) + LUSTIFY SDXL NSFW inpaint (genuine 9-ch UNet, fp16)  (~14GB)
   dl AiAF/ponyDiffusionV6XL_v6StartWithThisOne.safetensors \
      "ponyDiffusionV6XL_v6StartWithThisOne.safetensors"  checkpoints 7   # (verified single-file)
-  dl diffusers/stable-diffusion-xl-1.0-inpainting-0.1 "*.safetensors"  checkpoints 7  # (VERIFY single-file)
+  dl andro-flock/LUSTIFY-SDXL-NSFW-checkpoint-v2-0-INPAINTING \
+     "lustifySDXLNSFW_v20-inpainting.safetensors"  checkpoints 7   # (VERIFY 9-ch inpaint)
   dl madebyollin/sdxl-vae-fp16-fix        "sdxl_vae.safetensors"             vae 1
 }
 
-stage_edit() {   # Inpaint (FLUX Fill) + instruction edit (Qwen-Edit + Lightning) + Kontext  (~30GB)
-  dl YarvixPA/FLUX.1-Fill-dev-GGUF        "*Q5_K_M.gguf"                     unet 8
+stage_edit() {   # Instruction + reference edit: Qwen-Image-Edit 2511 + Lightning + NSFW LoRA  (~14GB)
+  # Shares the abliterated Qwen2.5-VL text encoder + Qwen VAE pulled by `stage_qwen`.
   dl unsloth/Qwen-Image-Edit-2511-GGUF    "*Q4_K_M.gguf"                     unet 13
   dl lightx2v/Qwen-Image-Edit-2511-Lightning "*.safetensors"                loras 1
-  dl city96/FLUX.1-Kontext-dev-gguf       "*Q4_K_M.gguf"                     unet 7   # (VERIFY repo)
+  dl goonsai/qwen-image-loras             "qwen_MCNL_v1.0.safetensors"       loras 1   # (VERIFY) NSFW LoRA
 }
 
-stage_ref() {    # Reference: SDXL ControlNet (canny+depth) + FLUX Redux + CLIP-Vision + upscaler  (~8GB)
+stage_ref() {    # Structure control (SDXL ControlNet canny+depth) + Real-ESRGAN upscaler  (~5GB)
   dl xinsir/controlnet-canny-sdxl-1.0     "diffusion_pytorch_model.safetensors" controlnet 2.5
   dl xinsir/controlnet-depth-sdxl-1.0     "diffusion_pytorch_model.safetensors" controlnet 2.5
-  dl black-forest-labs/FLUX.1-Redux-dev   "*.safetensors"                    style_models 1
-  dl Comfy-Org/sigclip_vision_384         "*.safetensors"                    clip_vision 1
   dl ai-forever/Real-ESRGAN               "RealESRGAN_x4.pth"                upscale_models 0.1  # (VERIFY)
 }
 
 case "$STAGE" in
-  base) stage_base ;;
   qwen) stage_qwen ;;
   sdxl) stage_sdxl ;;
   edit) stage_edit ;;
   ref)  stage_ref ;;
-  all)  stage_base; stage_qwen; stage_sdxl; stage_edit; stage_ref ;;
-  *) echo "usage: $0 [base|qwen|sdxl|edit|ref|all]"; exit 1 ;;
+  all)  stage_qwen; stage_sdxl; stage_edit; stage_ref ;;
+  *) echo "usage: $0 [qwen|sdxl|edit|ref|all]"; exit 1 ;;
 esac
 echo "✓ stage '$STAGE' done. Disk:"; df -g "$HOME" | awk 'NR==2{print $4" GB free"}'
