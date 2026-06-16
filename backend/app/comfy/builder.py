@@ -26,7 +26,7 @@ from app.models_catalog.registry import (
     UPSCALE_MODEL,
     ModelDef,
 )
-from app.schemas.genspec import GenSpec, Mode
+from app.schemas.genspec import LOCAL_QWEN_EDIT_MAX_REFS, GenSpec, Mode
 
 
 @dataclass
@@ -197,12 +197,25 @@ def build_edit_qwen(spec: GenSpec, ctx: BuildContext) -> BuildResult:
     vae = g.add("VAELoader", {"vae_name": m.files.get("vae", "qwen_image_vae.safetensors")})
     vae_link = [vae, 0]
     model_link, clip_link = _apply_loras(g, model_link, clip_link, m, spec)
-    # Single-input model: uses source, else the first reference; extra refs are ignored (see docs/WORKFLOWS.md).
-    src = g.add("LoadImage", {"image": ctx.comfy_source or (ctx.comfy_refs[0] if ctx.comfy_refs else "")})
-    # Text-instruction edit conditioning (TextEncodeQwenImageEdit name validated at startup).
-    pos = g.add("TextEncodeQwenImageEdit", {"clip": clip_link, "prompt": spec.prompt, "image": [src, 0], "vae": vae_link})
-    neg = g.add("TextEncodeQwenImageEdit", {"clip": clip_link, "prompt": "", "image": [src, 0], "vae": vae_link})
-    enc = g.add("VAEEncode", {"pixels": [src, 0], "vae": vae_link})
+    # Effective reference images: source (if any) first, then the uploaded refs. The multi-image
+    # node TextEncodeQwenImageEditPlus exposes image1..image3 only, so clamp to that (see
+    # docs/WORKFLOWS.md). LoadImage has a single IMAGE output, so N images need N LoadImage nodes.
+    imgs = ([ctx.comfy_source] if ctx.comfy_source else []) + list(ctx.comfy_refs)
+    imgs = imgs[:LOCAL_QWEN_EDIT_MAX_REFS] or [""]   # keep the empty-input fallback for no images
+    loads = [g.add("LoadImage", {"image": ref}) for ref in imgs]
+    if len(loads) <= 1:
+        # Single reference → single-input node (name validated at startup); empty negative.
+        src = loads[0]
+        pos = g.add("TextEncodeQwenImageEdit", {"clip": clip_link, "prompt": spec.prompt, "image": [src, 0], "vae": vae_link})
+        neg = g.add("TextEncodeQwenImageEdit", {"clip": clip_link, "prompt": "", "image": [src, 0], "vae": vae_link})
+    else:
+        # Multiple references → wire each LoadImage into image1/image2/image3. The negative
+        # reuses the same LoadImage nodes (no duplication); vae yields reference_latents.
+        img_inputs = {f"image{i + 1}": [ld, 0] for i, ld in enumerate(loads)}
+        pos = g.add("TextEncodeQwenImageEditPlus", {"clip": clip_link, "prompt": spec.prompt, "vae": vae_link, **img_inputs})
+        neg = g.add("TextEncodeQwenImageEditPlus", {"clip": clip_link, "prompt": "", "vae": vae_link, **img_inputs})
+    # Seed latent from the primary image (sets output dimensions; denoise=1.0 fully renoises).
+    enc = g.add("VAEEncode", {"pixels": [loads[0], 0], "vae": vae_link})
     ks = _ksampler(g, model=model_link, positive=[pos, 0], negative=[neg, 0], latent=[enc, 0],
                    spec=spec, d=d, denoise=1.0)
     dec = g.add("VAEDecode", {"samples": [ks, 0], "vae": vae_link})

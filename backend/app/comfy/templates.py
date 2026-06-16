@@ -13,7 +13,7 @@ REQUIRED_NODES: dict[str, list[str]] = {
         "KSampler", "VAEDecode", "VAEEncode", "SaveImage", "LoadImage", "LoraLoader",
     ],
     "qwen gguf": ["UnetLoaderGGUF", "VAELoader", "EmptySD3LatentImage"],
-    "qwen (image/edit)": ["CLIPLoaderGGUF", "TextEncodeQwenImageEdit"],
+    "qwen (image/edit)": ["CLIPLoaderGGUF", "TextEncodeQwenImageEdit", "TextEncodeQwenImageEditPlus"],
     "inpaint": ["VAEEncodeForInpaint", "ImageToMask"],
     "controlnet": ["ControlNetLoader", "ControlNetApplyAdvanced"],
     "upscale": ["UpscaleModelLoader", "ImageUpscaleWithModel"],

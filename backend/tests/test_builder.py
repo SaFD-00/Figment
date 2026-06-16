@@ -48,10 +48,40 @@ def test_inpaint_lustify():
 
 
 def test_reference_routes_to_qwen_edit():
+    # Single reference → single-input node (backward compatible).
     spec = GenSpec(mode=Mode.reference, model="qwen-edit", prompt="in this style")
     res = B.build(spec, _ctx("qwen-edit", refs=["imggen/ref.png"]))
     _assert_graph(res)
-    assert any(n["class_type"] == "TextEncodeQwenImageEdit" for n in res.graph.values())
+    types = [n["class_type"] for n in res.graph.values()]
+    assert "TextEncodeQwenImageEdit" in types
+    assert "TextEncodeQwenImageEditPlus" not in types
+    assert types.count("LoadImage") == 1
+
+
+def test_reference_multi_routes_to_qwen_edit_plus():
+    # Two or more references → multi-image node, one LoadImage each, wired image1..imageN.
+    spec = GenSpec(mode=Mode.reference, model="qwen-edit", prompt="blend these")
+    res = B.build(spec, _ctx("qwen-edit", refs=["imggen/a.png", "imggen/b.png", "imggen/c.png"]))
+    _assert_graph(res)
+    types = [n["class_type"] for n in res.graph.values()]
+    assert "TextEncodeQwenImageEditPlus" in types
+    assert "TextEncodeQwenImageEdit" not in types
+    assert types.count("LoadImage") == 3
+    pos = next(n for n in res.graph.values()
+               if n["class_type"] == "TextEncodeQwenImageEditPlus" and n["inputs"].get("prompt"))
+    assert {"image1", "image2", "image3"} <= set(pos["inputs"].keys())
+
+
+def test_reference_multi_clamps_to_three():
+    # More refs than the node supports (image1..image3) → clamp to 3, no image4.
+    spec = GenSpec(mode=Mode.reference, model="qwen-edit", prompt="blend")
+    res = B.build(spec, _ctx("qwen-edit", refs=[f"imggen/r{i}.png" for i in range(5)]))
+    _assert_graph(res)
+    types = [n["class_type"] for n in res.graph.values()]
+    assert types.count("LoadImage") == 3
+    pos = next(n for n in res.graph.values()
+               if n["class_type"] == "TextEncodeQwenImageEditPlus" and n["inputs"].get("prompt"))
+    assert "image4" not in pos["inputs"]
 
 
 def test_controlnet_sdxl():

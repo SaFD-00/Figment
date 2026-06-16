@@ -22,6 +22,12 @@ ControlType = Literal["canny", "depth", "scribble", "lineart"]
 # Max reference images per request. Mirror in frontend/lib/constants.ts — keep in sync.
 MAX_REFERENCE_IMAGES = 6
 
+# Local qwen-edit multi-reference cap: the ComfyUI node TextEncodeQwenImageEditPlus exposes
+# image1..image3 only. The builder clamps to this; the global cap above stays the outer bound
+# (a hand-crafted 6-ref local request degrades to the first 3 rather than erroring).
+# Mirror in frontend/lib/constants.ts (LOCAL_MAX_REFERENCE_IMAGES).
+LOCAL_QWEN_EDIT_MAX_REFS = 3
+
 
 class ReferenceImage(BaseModel):
     asset: str                       # asset id of an uploaded reference image
