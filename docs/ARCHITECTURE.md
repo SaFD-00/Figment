@@ -15,7 +15,7 @@ FastAPI backend (:8000)
         │ HTTP /api/chat            │ HTTP /prompt + WS /ws
         ▼                           ▼
    Ollama (:11434)            ComfyUI (:8188, MPS, GGUF)
-   Qwen3.5-9B uncensored      Qwen-Image/Pony/Chroma/Z-Image/FLUX-Fill/Qwen-Edit/Kontext/ControlNet/Redux/RealESRGAN
+   Qwen3.5-9B uncensored      Qwen-Image/Qwen-Edit/Pony/LUSTIFY-Inpaint/ControlNet/RealESRGAN (all uncensored)
         └────────── shared 24GB unified memory (one big model at a time) ──────────┘
                                   ▼ writes
          <repo>/AIStudio/ (models, comfyui, outputs, db.sqlite, logs)  ← single runtime home (git-ignored)
@@ -42,12 +42,12 @@ FastAPI backend (:8000)
   FigGen pipeline on **OpenRouter** (`engines/figure_pipeline.py`) — structured FigureSpec → editable
   SVG/PPTX. Provider is unified on `OPENROUTER_API_KEY`; with no key it falls back to a mock provider.
 - **Region Redraw**: frontend exports a white-on-black mask at exact source dims → `POST /uploads`
-  (source + mask) → `POST /jobs {mode:inpaint}` → `build_inpaint_flux_fill` (or SDXL).
+  (source + mask) → `POST /jobs {mode:inpaint}` → `build_inpaint_sdxl` (LUSTIFY 9-ch inpaint).
 - **Toolbar one-shots**: `POST /assets/{id}/upscale|whitebg|removebg` (upscale via a tiny ComfyUI
   graph polled on `/history`; bg-removal via rembg on CPU).
 
 ## Why these choices
-- **ComfyUI** as the single engine: one backend covers txt2img/img2img/inpaint/edit/controlnet/redux/
+- **ComfyUI** as the single engine: one backend covers txt2img/img2img/inpaint/edit/controlnet/reference/
   upscale; programmatic `/prompt`+`/ws`; GGUF support (FP8 is broken on Metal).
 - **Programmatic graph builder** (not JSON+placeholder): type-safe LoRA chains, ref-image fan-out,
   and per-mode branching; validated against live `/object_info` at startup.
