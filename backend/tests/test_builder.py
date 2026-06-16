@@ -31,20 +31,27 @@ def test_txt2img_sdxl():
     _assert_graph(B.build(spec, _ctx("pony-v6")))
 
 
-def test_txt2img_chroma_flux():
-    spec = GenSpec(mode=Mode.txt2img, model="chroma-hd", prompt="a fox")
-    res = B.build(spec, _ctx("chroma-hd"))
+def test_txt2img_qwen():
+    spec = GenSpec(mode=Mode.txt2img, model="qwen-image", prompt="a fox")
+    res = B.build(spec, _ctx("qwen-image"))
     _assert_graph(res)
     assert any(n["class_type"] == "UnetLoaderGGUF" for n in res.graph.values())
-    assert any(n["class_type"] == "FluxGuidance" for n in res.graph.values())
+    assert any(n["class_type"] == "CLIPLoaderGGUF" for n in res.graph.values())
 
 
-def test_inpaint_flux_fill():
-    spec = GenSpec(mode=Mode.inpaint, model="flux-fill", prompt="brick wall",
+def test_inpaint_lustify():
+    spec = GenSpec(mode=Mode.inpaint, model="lustify-inpaint", prompt="brick wall",
                    source_asset="s", mask_asset="m")
-    res = B.build(spec, _ctx("flux-fill", src="imggen/src.png", mask="imggen/mask.png"))
+    res = B.build(spec, _ctx("lustify-inpaint", src="imggen/src.png", mask="imggen/mask.png"))
     _assert_graph(res)
-    assert any(n["class_type"] == "InpaintModelConditioning" for n in res.graph.values())
+    assert any(n["class_type"] == "VAEEncodeForInpaint" for n in res.graph.values())
+
+
+def test_reference_routes_to_qwen_edit():
+    spec = GenSpec(mode=Mode.reference, model="qwen-edit", prompt="in this style")
+    res = B.build(spec, _ctx("qwen-edit", refs=["imggen/ref.png"]))
+    _assert_graph(res)
+    assert any(n["class_type"] == "TextEncodeQwenImageEdit" for n in res.graph.values())
 
 
 def test_controlnet_sdxl():

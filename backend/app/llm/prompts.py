@@ -35,11 +35,11 @@ CHOOSING mode (the JSON `mode` field)
 
 CHOOSING model (the JSON `model` field; null lets the app pick)
 {_MODEL_LINES}
-  Heuristics: speed -> z-image; general quality/uncensored -> chroma-hd; explicit/anime ->
-  pony-v6 (+ a LoRA if asked); instruction edit -> qwen-edit; reference/identity edit -> kontext.
+  Heuristics: general quality/uncensored -> qwen-image; explicit/anime -> pony-v6 (+ a LoRA if
+  asked); instruction edit -> qwen-edit; style/reference -> qwen-edit; masked inpaint -> lustify-inpaint.
 
 GENSPEC JSON SHAPE (omit fields you don't need; the app fills sensible defaults)
-{{"version":1,"mode":"txt2img","model":"chroma-hd","prompt":"<english>","negative_prompt":"",
+{{"version":1,"mode":"txt2img","model":"qwen-image","prompt":"<english>","negative_prompt":"",
  "width":1024,"height":1024,"steps":null,"cfg":null,"seed":null,"batch":1,
  "denoise":0.6,"reference_images":[],"controlnet_type":null,"controlnet_strength":0.7,
  "loras":[],"upscale":false,"remove_bg":false}}
@@ -55,7 +55,7 @@ FEWSHOT = [
     {"role": "user", "content": "사진풍, 창가에 앉은 주황색 고양이. 바로 생성해줘"},
     {"role": "assistant", "content": (
         "사진풍으로 창가의 주황색 고양이를 생성할게요.\n"
-        '<GENSPEC>{"version":1,"mode":"txt2img","model":"chroma-hd",'
+        '<GENSPEC>{"version":1,"mode":"txt2img","model":"qwen-image",'
         '"prompt":"photorealistic portrait of a ginger cat sitting on a sunlit windowsill, '
         'soft natural light, shallow depth of field, detailed fur, cozy interior background, 50mm",'
         '"negative_prompt":"","width":1024,"height":1024,"seed":null}</GENSPEC>'

@@ -27,7 +27,7 @@ ENGINE_CLOUD_OPENROUTER = "cloud-openrouter"
 @dataclass(frozen=True)
 class ModelDef:
     id: str
-    family: str                      # qwen-image|chroma|flux|sdxl|z-image|flux-fill|qwen-edit|kontext|cloud|ollama
+    family: str                      # qwen-image|sdxl|qwen-edit|cloud|ollama
     label: str
     vram_gb: float
     supports: tuple[Mode, ...]
@@ -46,33 +46,22 @@ class ModelDef:
 
 # ── Image-generation models ────────────────────────────────────────────────
 MODELS: dict[str, ModelDef] = {
-    # ── Local ComfyUI bases ────────────────────────────────────────────────
+    # ── Local generation (uncensored: abliterated Qwen2.5-VL TE + NSFW LoRA) ─
     "qwen-image": ModelDef(
-        id="qwen-image", family="qwen-image", label="Qwen-Image 2512 (local · quality txt2img)",
+        id="qwen-image", family="qwen-image", label="Qwen-Image 2512 (local · uncensored txt2img)",
         vram_gb=13.0, supports=(Mode.txt2img, Mode.img2img),
         files={"unet": "Qwen-Image-2512-Q4_K_M.gguf",   # VERIFY repo/filename
-               "clip": "qwen_2.5_vl_7b.safetensors", "vae": "qwen_image_vae.safetensors"},
-        uses_negative=False, nsfw=False,
+               # abliterated Qwen2.5-VL text encoder lifts the refusal bias (base Qwen has no active
+               # censorship — only the TE's refusal lean + missing safety training).
+               "clip": "Qwen2.5-VL-7B-Instruct-abliterated-Q4_K_M.gguf",  # VERIFY repo/filename
+               "vae": "qwen_image_vae.safetensors"},
+        uses_negative=False, nsfw=True,
         defaults={"steps": 8, "cfg": 1.0, "sampler": "euler", "scheduler": "simple"},
         template="txt2img_qwen",
-        builtin_loras=(("Qwen-Image-Lightning-8steps.safetensors", 1.0),),  # VERIFY 8-step distill LoRA
-    ),
-    "chroma-hd": ModelDef(
-        id="chroma-hd", family="chroma", label="Chroma 1-HD (local · uncensored, quality)",
-        vram_gb=10.0, supports=(Mode.txt2img, Mode.img2img),
-        files={"unet": "Chroma1-HD-Q5_K_M.gguf", "clip": "t5-v1_1-xxl-encoder-Q5_K_M.gguf",
-               "clip2": "clip_l.safetensors", "vae": "ae.safetensors"},
-        uses_negative=False, nsfw=True,
-        defaults={"steps": 28, "cfg": 4.0, "sampler": "euler", "scheduler": "simple"},
-        template="txt2img_chroma",
-    ),
-    "z-image": ModelDef(
-        id="z-image", family="z-image", label="Z-Image Turbo (local · fast, light)",
-        vram_gb=4.0, supports=(Mode.txt2img, Mode.img2img),
-        files={"checkpoint": "z-image-turbo.safetensors"},
-        uses_negative=False, nsfw=True,
-        defaults={"steps": 8, "cfg": 1.0, "sampler": "euler", "scheduler": "simple"},
-        template="txt2img_zimage",
+        builtin_loras=(
+            ("Qwen-Image-Lightning-8steps.safetensors", 1.0),  # VERIFY 8-step distill LoRA
+            ("qwen_MCNL_v1.0.safetensors", 1.0),               # VERIFY NSFW LoRA (goonsai)
+        ),
     ),
     "pony-v6": ModelDef(
         id="pony-v6", family="sdxl", label="Pony Diffusion V6 XL (local · explicit NSFW)",
@@ -83,48 +72,28 @@ MODELS: dict[str, ModelDef] = {
         template="txt2img_sdxl_lora",
     ),
     # ── Local inpaint (masked region redraw) ────────────────────────────────
-    "flux-fill": ModelDef(
-        id="flux-fill", family="flux-fill", label="FLUX.1 Fill (local · inpaint)",
-        vram_gb=8.0, supports=(Mode.inpaint,),
-        files={"unet": "FLUX.1-Fill-dev-Q5_K_M.gguf", "clip": "t5-v1_1-xxl-encoder-Q5_K_M.gguf",
-               "clip2": "clip_l.safetensors", "vae": "ae.safetensors"},
-        defaults={"steps": 24, "cfg": 30.0, "sampler": "euler", "scheduler": "normal"},
-        template="inpaint_flux_fill",
-    ),
-    "sdxl-inpaint": ModelDef(
-        id="sdxl-inpaint", family="sdxl", label="SDXL Inpainting (local · fast)",
+    "lustify-inpaint": ModelDef(
+        id="lustify-inpaint", family="sdxl", label="LUSTIFY SDXL NSFW (local · inpaint)",
         vram_gb=7.0, supports=(Mode.inpaint,),
-        files={"checkpoint": "sd_xl_inpainting_0.1.safetensors"},
-        uses_negative=True,
-        defaults={"steps": 24, "cfg": 7.0, "sampler": "dpmpp_2m", "scheduler": "karras"},
+        files={"checkpoint": "lustifySDXLNSFW_v20-inpainting.safetensors"},  # VERIFY genuine 9-ch inpaint UNet
+        uses_negative=True, nsfw=True,
+        defaults={"steps": 30, "cfg": 6.0, "sampler": "dpmpp_2m", "scheduler": "karras"},
         template="inpaint_sdxl",
     ),
-    # ── Local instruction / reference edit ──────────────────────────────────
+    # ── Local instruction + reference edit (shared abliterated TE + NSFW LoRA) ─
     "qwen-edit": ModelDef(
-        id="qwen-edit", family="qwen-edit", label="Qwen-Image-Edit 2511 (local · instruction edit)",
-        vram_gb=13.0, supports=(Mode.edit,),
-        files={"unet": "Qwen-Image-Edit-2511-Q4_K_M.gguf"},
+        id="qwen-edit", family="qwen-edit", label="Qwen-Image-Edit 2511 (local · edit + reference)",
+        vram_gb=13.0, supports=(Mode.edit, Mode.reference),
+        files={"unet": "Qwen-Image-Edit-2511-Q4_K_M.gguf",
+               "clip": "Qwen2.5-VL-7B-Instruct-abliterated-Q4_K_M.gguf",  # shared abliterated TE
+               "vae": "qwen_image_vae.safetensors"},
+        uses_negative=False, nsfw=True,
         defaults={"steps": 4, "cfg": 1.0, "sampler": "euler", "scheduler": "simple"},
         template="edit_qwen_lightning",
-        builtin_loras=(("Qwen-Image-Edit-2511-Lightning.safetensors", 1.0),),
-    ),
-    "kontext": ModelDef(
-        id="kontext", family="kontext", label="FLUX.1 Kontext (local · reference edit)",
-        vram_gb=7.0, supports=(Mode.edit, Mode.reference),
-        files={"unet": "flux1-kontext-dev-Q4_K_M.gguf", "clip": "t5-v1_1-xxl-encoder-Q5_K_M.gguf",
-               "clip2": "clip_l.safetensors", "vae": "ae.safetensors"},
-        defaults={"steps": 20, "cfg": 2.5, "sampler": "euler", "scheduler": "simple"},
-        template="edit_kontext",
-    ),
-    # ── Local style reference ───────────────────────────────────────────────
-    "redux": ModelDef(
-        id="redux", family="flux", label="FLUX Redux (local · style reference)",
-        vram_gb=10.0, supports=(Mode.reference,),
-        files={"unet": "Chroma1-HD-Q5_K_M.gguf", "clip": "t5-v1_1-xxl-encoder-Q5_K_M.gguf",
-               "clip2": "clip_l.safetensors", "vae": "ae.safetensors",
-               "style_model": "flux1-redux-dev.safetensors", "clip_vision": "sigclip_vision_patch14_384.safetensors"},
-        defaults={"steps": 24, "cfg": 3.5, "sampler": "euler", "scheduler": "simple"},
-        template="redux_flux",
+        builtin_loras=(
+            ("Qwen-Image-Edit-2511-Lightning.safetensors", 1.0),
+            ("qwen_MCNL_v1.0.safetensors", 1.0),  # VERIFY NSFW LoRA (goonsai; edit-compatible)
+        ),
     ),
     # ── Cloud image models (all OpenRouter) ─────────────────────────────────
     "gpt-image-2": ModelDef(
@@ -210,19 +179,16 @@ LLM_MODELS: dict[str, ModelDef] = {
 DEFAULT_BY_MODE: dict[Mode, str] = {
     Mode.txt2img: "qwen-image",
     Mode.img2img: "qwen-image",
-    Mode.inpaint: "flux-fill",
+    Mode.inpaint: "lustify-inpaint",
     Mode.edit: "qwen-edit",
     Mode.controlnet: "pony-v6",
-    Mode.reference: "redux",
+    Mode.reference: "qwen-edit",
 }
 
 # Lighter equivalents the orchestrator can downshift to under memory pressure.
-LIGHTER_EQUIVALENT: dict[str, str] = {
-    "qwen-image": "z-image",
-    "chroma-hd": "z-image",
-    "qwen-edit": "kontext",
-    "flux-fill": "sdxl-inpaint",
-}
+# Empty: the trimmed uncensored lineup has no meaningful lighter uncensored stand-in
+# (downshift() then safely returns the original model unchanged).
+LIGHTER_EQUIVALENT: dict[str, str] = {}
 
 # SDXL ControlNet model files keyed by control type.
 CONTROLNET_FILES: dict[str, str] = {

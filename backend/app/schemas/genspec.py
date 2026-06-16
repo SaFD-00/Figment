@@ -11,9 +11,9 @@ class Mode(str, Enum):
     txt2img = "txt2img"
     img2img = "img2img"
     inpaint = "inpaint"
-    edit = "edit"          # instruction edit / reference-edit (Kontext, Qwen-Edit)
+    edit = "edit"          # instruction / reference edit (Qwen-Image-Edit)
     controlnet = "controlnet"
-    reference = "reference"  # style/look reference (Redux)
+    reference = "reference"  # style/look reference (Qwen-Image-Edit)
 
 
 RefRole = Literal["style", "structure", "edit", "identity"]
@@ -38,11 +38,11 @@ class GenSpec(BaseModel):
     """One generation/edit request. `model` may be null → backend picks by mode + free RAM."""
     version: int = 1
     mode: Mode = Mode.txt2img
-    model: Optional[str] = None      # image registry id, e.g. "chroma-hd" / "seedream-4.5"
+    model: Optional[str] = None      # image registry id, e.g. "qwen-image" / "seedream-4.5"
     llm_model: Optional[str] = None  # chat/planner LLM id (figure engine), e.g. "minimax-m3"
 
     prompt: str = ""
-    negative_prompt: str = ""        # used by SDXL/Pony; ignored by FLUX/Chroma
+    negative_prompt: str = ""        # used by SDXL/Pony; ignored by Qwen-Image
 
     width: int = 1024
     height: int = 1024

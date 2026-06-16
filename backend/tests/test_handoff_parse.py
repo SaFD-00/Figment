@@ -21,7 +21,7 @@ def test_pure_chat_no_block():
 def test_ready_with_valid_block():
     text = (
         "사진풍 고양이를 생성할게요.\n"
-        '<GENSPEC>{"version":1,"mode":"txt2img","model":"chroma-hd",'
+        '<GENSPEC>{"version":1,"mode":"txt2img","model":"qwen-image",'
         '"prompt":"a ginger cat on a windowsill","seed":42}</GENSPEC>'
     )
     ex, visible = _feed_all(text)
@@ -29,7 +29,7 @@ def test_ready_with_valid_block():
     assert err is None
     assert spec is not None
     assert spec.prompt == "a ginger cat on a windowsill"
-    assert spec.model == "chroma-hd"
+    assert spec.model == "qwen-image"
     assert spec.seed == 42
     # the GENSPEC block must NOT leak into visible text
     assert "GENSPEC" not in visible

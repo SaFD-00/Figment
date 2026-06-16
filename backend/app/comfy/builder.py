@@ -5,14 +5,13 @@ images, and mode branching stay type-safe and easy to correct against a live /ob
 
 Node `class_type`s used:
   Core:    CheckpointLoaderSimple, CLIPTextEncode, EmptyLatentImage, EmptySD3LatentImage,
-           KSampler, VAEDecode, VAEEncode, VAEEncodeForInpaint, LoadImage, SaveImage,
-           LoraLoader, ControlNetLoader, ControlNetApplyAdvanced, ImageUpscaleWithModel,
-           UpscaleModelLoader, StyleModelLoader, CLIPVisionLoader, CLIPVisionEncode,
-           StyleModelApply, FluxGuidance, InpaintModelConditioning, ReferenceLatent
-  GGUF (ComfyUI-GGUF):  UnetLoaderGGUF, DualCLIPLoaderGGUF, CLIPLoaderGGUF
+           KSampler, VAEDecode, VAEEncode, VAEEncodeForInpaint, ImageToMask, LoadImage,
+           SaveImage, LoraLoader, VAELoader, ControlNetLoader, ControlNetApplyAdvanced,
+           ImageUpscaleWithModel, UpscaleModelLoader
+  GGUF (ComfyUI-GGUF):  UnetLoaderGGUF, CLIPLoaderGGUF, TextEncodeQwenImageEdit
 
-GGUF/Metal note: only GGUF/bf16 weights are referenced — never fp8 (corrupts on MPS).
-Node names for GGUF/Chroma/Qwen paths are best-effort and validated at startup against
+GGUF/Metal note: only GGUF/bf16/fp16 weights are referenced — never fp8 (corrupts on MPS).
+Node names for the Qwen GGUF paths are best-effort and validated at startup against
 /object_info (see templates.validate_required_nodes); correct here if a name drifts.
 """
 from __future__ import annotations
@@ -111,36 +110,11 @@ def _sdxl_base(g: _G, m: ModelDef, spec: GenSpec):
     return model_link, vae_link, [pos, 0], [neg, 0]
 
 
-# ── FLUX/Chroma family (GGUF) ──────────────────────────────────────────────────
-def _flux_base(g: _G, m: ModelDef, spec: GenSpec, *, flux_guidance: float | None = None):
-    unet = g.add("UnetLoaderGGUF", {"unet_name": m.files["unet"]})
-    model_link = [unet, 0]
-    if m.family == "chroma":
-        # Chroma uses a SINGLE T5 encoder (type="chroma"), not FLUX's dual CLIP.
-        clip = g.add("CLIPLoaderGGUF", {"clip_name": m.files["clip"], "type": "chroma"})
-    else:
-        clip = g.add("DualCLIPLoaderGGUF", {
-            "clip_name1": m.files["clip"], "clip_name2": m.files["clip2"], "type": "flux",
-        })
-    clip_link = [clip, 0]
-    vae = g.add("VAELoader", {"vae_name": m.files["vae"]})
-    vae_link = [vae, 0]
-    model_link, clip_link = _apply_loras(g, model_link, clip_link, m, spec)
-    pos = g.add("CLIPTextEncode", {"text": spec.prompt, "clip": clip_link})
-    if flux_guidance is not None:
-        pos = g.add("FluxGuidance", {"guidance": flux_guidance, "conditioning": [pos, 0]})
-        pos_link = [pos, 0]
-    else:
-        pos_link = [pos, 0]
-    neg = g.add("CLIPTextEncode", {"text": "", "clip": clip_link})
-    return model_link, clip_link, vae_link, pos_link, [neg, 0]
-
-
 # ── Qwen-Image family (GGUF + Qwen text/vision encoder) ─────────────────────────
 def _qwen_base(g: _G, m: ModelDef, spec: GenSpec):
     """Qwen-Image loaders (UNET GGUF + Qwen2.5-VL CLIP + Qwen VAE), LoRA-chained.
 
-    Returns (model, clip, vae, pos, neg) mirroring `_flux_base` so txt2img/img2img share it.
+    Returns (model, clip, vae, pos, neg) so txt2img/img2img can share it.
     """
     unet = g.add("UnetLoaderGGUF", {"unet_name": m.files["unet"]})
     model_link = [unet, 0]
@@ -168,34 +142,6 @@ def build_txt2img_sdxl(spec: GenSpec, ctx: BuildContext) -> BuildResult:
     return BuildResult(g.nodes, save, "imggen")
 
 
-def build_txt2img_flux(spec: GenSpec, ctx: BuildContext) -> BuildResult:
-    g = _G()
-    m, d = ctx.model, _defaults(spec, ctx.model)
-    model_link, _clip, vae_link, pos, neg = _flux_base(g, m, spec, flux_guidance=float(d["cfg"]))
-    latent = g.add("EmptySD3LatentImage", {"width": ctx.width, "height": ctx.height, "batch_size": spec.batch})
-    # FLUX uses cfg=1 in the sampler; guidance is carried by FluxGuidance on the conditioning.
-    ks = _ksampler(g, model=model_link, positive=pos, negative=neg, latent=[latent, 0], spec=spec,
-                   d={**d, "cfg": 1.0})
-    dec = g.add("VAEDecode", {"samples": [ks, 0], "vae": vae_link})
-    save = g.add("SaveImage", {"filename_prefix": "imggen", "images": [dec, 0]})
-    return BuildResult(g.nodes, save, "imggen")
-
-
-def build_txt2img_zimage(spec: GenSpec, ctx: BuildContext) -> BuildResult:
-    # Z-Image ships as a single checkpoint; treat like a turbo SDXL-style graph (8 steps, cfg~1).
-    g = _G()
-    m, d = ctx.model, _defaults(spec, ctx.model)
-    ck = g.add("CheckpointLoaderSimple", {"ckpt_name": m.files["checkpoint"]})
-    model_link, clip_link, vae_link = [ck, 0], [ck, 1], [ck, 2]
-    pos = g.add("CLIPTextEncode", {"text": spec.prompt, "clip": clip_link})
-    neg = g.add("CLIPTextEncode", {"text": spec.negative_prompt, "clip": clip_link})
-    latent = g.add("EmptyLatentImage", {"width": ctx.width, "height": ctx.height, "batch_size": spec.batch})
-    ks = _ksampler(g, model=model_link, positive=[pos, 0], negative=[neg, 0], latent=[latent, 0], spec=spec, d=d)
-    dec = g.add("VAEDecode", {"samples": [ks, 0], "vae": vae_link})
-    save = g.add("SaveImage", {"filename_prefix": "imggen", "images": [dec, 0]})
-    return BuildResult(g.nodes, save, "imggen")
-
-
 def build_txt2img_qwen(spec: GenSpec, ctx: BuildContext) -> BuildResult:
     # Qwen-Image 2512 base (+ optional Lightning LoRA via builtin_loras). Latent space is SD3-style.
     g = _G()
@@ -214,9 +160,6 @@ def build_img2img(spec: GenSpec, ctx: BuildContext) -> BuildResult:
     load = g.add("LoadImage", {"image": ctx.comfy_source})
     if m.family == "qwen-image":
         model_link, _clip, vae_link, pos, neg = _qwen_base(g, m, spec)
-    elif m.family in ("chroma", "flux", "kontext", "redux"):
-        model_link, _clip, vae_link, pos, neg = _flux_base(g, m, spec, flux_guidance=float(d["cfg"]))
-        d = {**d, "cfg": 1.0}
     else:
         model_link, vae_link, pos, neg = _sdxl_base(g, m, spec)
     enc = g.add("VAEEncode", {"pixels": [load, 0], "vae": vae_link})
@@ -237,45 +180,6 @@ def build_inpaint_sdxl(spec: GenSpec, ctx: BuildContext) -> BuildResult:
     enc = g.add("VAEEncodeForInpaint", {"pixels": [img, 0], "vae": vae_link, "mask": [to_mask, 0], "grow_mask_by": 6})
     ks = _ksampler(g, model=model_link, positive=pos, negative=neg, latent=[enc, 0], spec=spec, d=d,
                    denoise=max(spec.denoise, 0.85))
-    dec = g.add("VAEDecode", {"samples": [ks, 0], "vae": vae_link})
-    save = g.add("SaveImage", {"filename_prefix": "imggen", "images": [dec, 0]})
-    return BuildResult(g.nodes, save, "imggen")
-
-
-def build_inpaint_flux_fill(spec: GenSpec, ctx: BuildContext) -> BuildResult:
-    g = _G()
-    m, d = ctx.model, _defaults(spec, ctx.model)
-    model_link, clip_link, vae_link, pos, neg = _flux_base(g, m, spec, flux_guidance=float(d["cfg"]))
-    img = g.add("LoadImage", {"image": ctx.comfy_source})
-    mask = g.add("LoadImage", {"image": ctx.comfy_mask})
-    to_mask = g.add("ImageToMask", {"image": [mask, 0], "channel": "red"})
-    cond = g.add("InpaintModelConditioning", {
-        "positive": pos, "negative": neg, "vae": vae_link,
-        "pixels": [img, 0], "mask": [to_mask, 0], "noise_mask": True,
-    })
-    ks = _ksampler(g, model=model_link, positive=[cond, 0], negative=[cond, 1], latent=[cond, 2],
-                   spec=spec, d={**d, "cfg": 1.0}, denoise=1.0)
-    dec = g.add("VAEDecode", {"samples": [ks, 0], "vae": vae_link})
-    save = g.add("SaveImage", {"filename_prefix": "imggen", "images": [dec, 0]})
-    return BuildResult(g.nodes, save, "imggen")
-
-
-def build_edit_kontext(spec: GenSpec, ctx: BuildContext) -> BuildResult:
-    g = _G()
-    m, d = ctx.model, _defaults(spec, ctx.model)
-    model_link, clip_link, vae_link, pos, neg = _flux_base(g, m, spec, flux_guidance=float(d["cfg"]))
-    refs = ctx.comfy_refs or ([ctx.comfy_source] if ctx.comfy_source else [])
-    # Reference-edit: encode each ref to latent and inject via ReferenceLatent (single) or
-    # ReferenceLatentPlus-style chaining (multi). We chain ReferenceLatent for portability.
-    cond_link = pos
-    for ref in refs:
-        load = g.add("LoadImage", {"image": ref})
-        enc = g.add("VAEEncode", {"pixels": [load, 0], "vae": vae_link})
-        rl = g.add("ReferenceLatent", {"conditioning": cond_link, "latent": [enc, 0]})
-        cond_link = [rl, 0]
-    latent = g.add("EmptySD3LatentImage", {"width": ctx.width, "height": ctx.height, "batch_size": 1})
-    ks = _ksampler(g, model=model_link, positive=cond_link, negative=neg, latent=[latent, 0],
-                   spec=spec, d={**d, "cfg": 1.0}, denoise=1.0)
     dec = g.add("VAEDecode", {"samples": [ks, 0], "vae": vae_link})
     save = g.add("SaveImage", {"filename_prefix": "imggen", "images": [dec, 0]})
     return BuildResult(g.nodes, save, "imggen")
@@ -332,32 +236,6 @@ def build_controlnet_sdxl(spec: GenSpec, ctx: BuildContext) -> BuildResult:
     return BuildResult(g.nodes, save, "imggen")
 
 
-def build_redux_flux(spec: GenSpec, ctx: BuildContext) -> BuildResult:
-    g = _G()
-    m, d = ctx.model, _defaults(spec, ctx.model)
-    model_link, clip_link, vae_link, pos, neg = _flux_base(g, m, spec, flux_guidance=float(d["cfg"]))
-    style = g.add("StyleModelLoader", {"style_model_name": m.files["style_model"]})
-    cvis = g.add("CLIPVisionLoader", {"clip_name": m.files["clip_vision"]})
-    refs = ctx.comfy_refs or ([ctx.comfy_source] if ctx.comfy_source else [])
-    # Blend every style reference: chain one StyleModelApply per ref (single ref → identical to before).
-    cond_link = pos
-    for i, ref in enumerate(refs):
-        load = g.add("LoadImage", {"image": ref})
-        venc = g.add("CLIPVisionEncode", {"clip_vision": [cvis, 0], "image": [load, 0], "crop": "center"})
-        strength = spec.reference_images[i].strength if i < len(spec.reference_images) else 0.8
-        applied = g.add("StyleModelApply", {
-            "conditioning": cond_link, "style_model": [style, 0], "clip_vision_output": [venc, 0],
-            "strength": strength, "strength_type": "multiply",
-        })
-        cond_link = [applied, 0]
-    latent = g.add("EmptySD3LatentImage", {"width": ctx.width, "height": ctx.height, "batch_size": 1})
-    ks = _ksampler(g, model=model_link, positive=cond_link, negative=neg, latent=[latent, 0],
-                   spec=spec, d={**d, "cfg": 1.0}, denoise=1.0)
-    dec = g.add("VAEDecode", {"samples": [ks, 0], "vae": vae_link})
-    save = g.add("SaveImage", {"filename_prefix": "imggen", "images": [dec, 0]})
-    return BuildResult(g.nodes, save, "imggen")
-
-
 def build_upscale(comfy_source: str) -> BuildResult:
     """Real-ESRGAN upscale of an already-uploaded image. Standalone (no model family)."""
     g = _G()
@@ -370,14 +248,9 @@ def build_upscale(comfy_source: str) -> BuildResult:
 
 _TEMPLATE_DISPATCH = {
     "txt2img_qwen": build_txt2img_qwen,
-    "txt2img_chroma": build_txt2img_flux,
-    "txt2img_zimage": build_txt2img_zimage,
     "txt2img_sdxl_lora": build_txt2img_sdxl,
-    "inpaint_flux_fill": build_inpaint_flux_fill,
     "inpaint_sdxl": build_inpaint_sdxl,
-    "edit_kontext": build_edit_kontext,
     "edit_qwen_lightning": build_edit_qwen,
-    "redux_flux": build_redux_flux,
 }
 
 
@@ -387,6 +260,9 @@ def build(spec: GenSpec, ctx: BuildContext) -> BuildResult:
         return build_controlnet_sdxl(spec, ctx)
     if spec.mode == Mode.img2img:
         return build_img2img(spec, ctx)
+    if spec.mode == Mode.reference:
+        # Reference is handled by Qwen-Image-Edit (uses the first reference image).
+        return build_edit_qwen(spec, ctx)
     template = ctx.model.template or "txt2img_sdxl_lora"
     fn = _TEMPLATE_DISPATCH.get(template, build_txt2img_sdxl)
     return fn(spec, ctx)

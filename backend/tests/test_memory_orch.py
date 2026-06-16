@@ -35,21 +35,23 @@ async def test_keeps_llm_for_light_model():
     orch = make()
     orch.budget = 19.0
     orch.llm_gb = 5.0
-    await orch.ensure_ready_for(MODELS["z-image"])     # 4 + 5 = 9 <= 19 → keep
+    await orch.ensure_ready_for(MODELS["pony-v6"])     # 7 + 5 = 12 <= 19 → keep
     assert orch.ollama.unloaded == 0
     assert orch.ledger.llm_loaded is True
 
 
 async def test_frees_comfy_on_family_switch():
     orch = make()
-    orch.ledger.comfy_family = "sdxl"
-    await orch.ensure_ready_for(MODELS["chroma-hd"])   # chroma family differs from sdxl
+    orch.ledger.comfy_family = "qwen-image"
+    await orch.ensure_ready_for(MODELS["pony-v6"])     # sdxl family differs from qwen-image
     assert orch.comfy.freed == 1
-    assert orch.ledger.comfy_family == "chroma"
+    assert orch.ledger.comfy_family == "sdxl"
 
 
-async def test_downshift_when_over_budget():
+async def test_no_downshift_without_equivalent():
+    # LIGHTER_EQUIVALENT is empty in the trimmed lineup, so an over-budget model has no
+    # lighter stand-in → downshift() returns the original model unchanged.
     orch = make()
-    orch.budget = 8.0                                  # tiny budget
-    chosen = await orch.ensure_ready_for(MODELS["chroma-hd"])  # 10GB > 8 → downshift to z-image (4GB)
-    assert chosen.id == "z-image"
+    orch.budget = 4.0                                  # tiny budget (pony-v6 is 7GB)
+    chosen = await orch.ensure_ready_for(MODELS["pony-v6"])
+    assert chosen.id == "pony-v6"

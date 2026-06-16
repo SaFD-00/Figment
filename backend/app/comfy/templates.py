@@ -12,17 +12,15 @@ REQUIRED_NODES: dict[str, list[str]] = {
         "CheckpointLoaderSimple", "CLIPTextEncode", "EmptyLatentImage",
         "KSampler", "VAEDecode", "VAEEncode", "SaveImage", "LoadImage", "LoraLoader",
     ],
-    "flux/chroma gguf": ["UnetLoaderGGUF", "DualCLIPLoaderGGUF", "VAELoader", "EmptySD3LatentImage", "FluxGuidance"],
-    "inpaint": ["VAEEncodeForInpaint", "ImageToMask", "InpaintModelConditioning"],
-    "reference edit": ["ReferenceLatent"],
+    "qwen gguf": ["UnetLoaderGGUF", "VAELoader", "EmptySD3LatentImage"],
+    "qwen (image/edit)": ["CLIPLoaderGGUF", "TextEncodeQwenImageEdit"],
+    "inpaint": ["VAEEncodeForInpaint", "ImageToMask"],
     "controlnet": ["ControlNetLoader", "ControlNetApplyAdvanced"],
-    "redux style": ["StyleModelLoader", "CLIPVisionLoader", "CLIPVisionEncode"],
     "upscale": ["UpscaleModelLoader", "ImageUpscaleWithModel"],
 }
 
 # Nodes that are nice-to-have; a missing one disables one feature but shouldn't block startup.
 OPTIONAL_NODES = {
-    "CLIPLoaderGGUF", "TextEncodeQwenImageEdit", "StyleModelApply",
     "CannyEdgePreprocessor", "DepthAnythingV2Preprocessor", "ScribblePreprocessor", "LineArtPreprocessor",
 }
 

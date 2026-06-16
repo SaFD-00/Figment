@@ -20,15 +20,15 @@ def _system(msgs: list[dict]) -> str:
 def test_build_enhance_messages_tag_vs_nl():
     # SDXL/Pony (tag-trained) → comma tag hint
     assert "comma-separated tags" in _system(build_enhance_messages("a cat", "pony-v6"))
-    # Chroma / cloud / unknown / None → natural-language hint
-    assert "natural language" in _system(build_enhance_messages("a cat", "chroma-hd"))
+    # Qwen / cloud / unknown / None → natural-language hint
+    assert "natural language" in _system(build_enhance_messages("a cat", "qwen-image"))
     assert "natural language" in _system(build_enhance_messages("a cat", "seedream-4.5"))
     assert "natural language" in _system(build_enhance_messages("a cat", None))
 
 
 def test_enhance_system_prompt_is_output_only():
     # The enhance prompt (not the chat refiner): instructs output-only, forbids the GENSPEC block.
-    sys = _system(build_enhance_messages("a cat", "chroma-hd"))
+    sys = _system(build_enhance_messages("a cat", "qwen-image"))
     assert "Output ONLY the rewritten prompt text" in sys
     assert "GENSPEC JSON SHAPE" not in sys  # the refiner's section header — must NOT appear here
     assert "rewrite" in sys.lower()
@@ -64,7 +64,7 @@ async def test_enhance_returns_joined_prompt(monkeypatch):
         promptmod, "chat_stream",
         _recording_stream(["a photorealistic ", "ginger cat on a ", "sunlit windowsill"], captured),
     )
-    res = await enhance(EnhanceRequest(prompt="고양이", image_model="chroma-hd", llm_model="qwen-9b-local"))
+    res = await enhance(EnhanceRequest(prompt="고양이", image_model="qwen-image", llm_model="qwen-9b-local"))
     assert res.prompt == "a photorealistic ginger cat on a sunlit windowsill"
     # routed via the enhance system prompt (not the chat refiner) and forwarded the picker LLM id
     assert "Output ONLY the rewritten prompt text" in _system(captured["messages"])
