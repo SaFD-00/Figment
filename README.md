@@ -22,14 +22,18 @@ backend that can drive **cloud models** (OpenRouter) and **local models**
 
 ## Models
 
-Pick any **image** model and any **chat/planner LLM** from a unified picker:
+Pick any **image** model and any **chat/planner LLM** right in the UI — an inline **pill picker**
+in the composer (home prompt box and the editor chat), grouped Local / Cloud. **There is no model
+config in `.env`** — it only holds API keys, service URLs, and fallback defaults.
 - **Cloud image** (OpenRouter): GPT Image 2, Nano Banana 2, SeeDream 4.5, FLUX.2 Max/Pro/Flex
 - **Cloud LLM** (OpenRouter): GPT-OSS 20B/120B (free), Qwen3.7 Plus, Qwen3.6 Flash, Qwen3.6 35B-A3B
 - **Local** (ComfyUI/Ollama): Qwen-Image 2512, Chroma, Z-Image, Pony, FLUX Fill/Kontext/Redux, Qwen-Edit, Qwen3.5 …
 
-Cloud models route through the **figure pipeline** (structured FigureSpec → editable SVG/PPTX);
-local models route through **ComfyUI**. With no API key configured, the cloud path falls back to
-a mock provider so the app runs fully offline.
+The selected model drives the whole pipeline: image generation, and the **chat/planner LLM follows
+your pick too** — a local LLM streams from **Ollama**, a cloud LLM from **OpenRouter**. Cloud image
+models route through the **figure pipeline** (structured FigureSpec → editable SVG/PPTX); local image
+models route through **ComfyUI**. With no API key, cloud options are disabled in the picker and the
+app falls back to local/mock so it runs fully offline.
 
 ## Architecture
 
