@@ -22,9 +22,9 @@ def _patch_key(monkeypatch, present: bool):
 
 def test_local_llm_maps_to_ollama_tag(monkeypatch):
     _patch_key(monkeypatch, True)  # key state irrelevant for local
-    provider, model = _resolve_chat("qwen-9b-local")
+    provider, model = _resolve_chat("qwen3-vl-local")
     assert provider == "ollama"
-    assert model == "hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M"
+    assert model == "huihui_ai/qwen3-vl-abliterated:8b"
 
 
 def test_cloud_llm_with_key_routes_to_openrouter(monkeypatch):

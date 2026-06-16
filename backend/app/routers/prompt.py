@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.llm.prompts import build_enhance_messages
-from app.llm.routing import chat_stream, resolve_chat
+from app.llm.routing import chat_stream
 from app.models_catalog.registry import resolve_llm
 from app.services import image_ops
 
@@ -72,13 +72,18 @@ def _prepare_image_data_url(s: str) -> str:
 
 
 def _enhance_image_url(req: EnhanceRequest) -> Optional[str]:
-    """Image data URL to attach — only for a cloud vision LLM the route will actually use."""
+    """Image data URL to attach — for any vision LLM (local Ollama or cloud OpenRouter).
+
+    Gated on the picked model's `vision` flag, not the provider: the cloud route forwards
+    OpenAI-style multimodal parts as-is, and the Ollama client converts them to its native
+    per-message `images` array — so local vision enhance works too. A non-vision/unknown pick
+    falls through to text-only enhance.
+    """
     if not req.image:
         return None
-    provider, _ = resolve_chat(req.llm_model)
     m = resolve_llm(req.llm_model)
-    if provider != "openrouter" or not (m and m.vision):
-        return None  # local/non-vision route ignores the image (text-only enhance)
+    if not (m and m.vision):
+        return None  # non-vision (or unknown) model ignores the image (text-only enhance)
     try:
         return _prepare_image_data_url(req.image)
     except Exception:  # noqa: BLE001 — a malformed image must not break text enhance
