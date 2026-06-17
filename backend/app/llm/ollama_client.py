@@ -46,7 +46,13 @@ class OllamaClient:
         s = get_settings()
         self.base = (base_url or s.ollama_url).rstrip("/")
         self.model = model or s.ollama_llm
-        self._http = httpx.AsyncClient(base_url=self.base, timeout=None)
+        # Bounded timeouts (was timeout=None → infinite hang). A generous read window covers a
+        # cold model load / slow first token, but a truly stuck Ollama now errors instead of
+        # pinning the request forever. Streaming counts the first-byte wait as one read.
+        self._http = httpx.AsyncClient(
+            base_url=self.base,
+            timeout=httpx.Timeout(connect=10.0, read=300.0, write=30.0, pool=10.0),
+        )
 
     async def aclose(self) -> None:
         await self._http.aclose()
