@@ -30,6 +30,18 @@ def fit_within(img: Image.Image, max_side: int = 1536) -> Image.Image:
     return img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
 
 
+def downscale_to_png(data: bytes, max_side: int) -> bytes:
+    """Cap an uploaded image's longest side to `max_side`, re-encoding as PNG only when it
+    actually shrinks. Images already within budget pass through untouched (original bytes), so
+    small/correctly-sized uploads are not needlessly re-encoded. Used to keep local qwen-edit
+    edit/reference inputs under the 24GB MPS attention ceiling (see genspec.LOCAL_QWEN_EDIT_MAX_SIDE)."""
+    img = Image.open(io.BytesIO(data))
+    img = ImageOps.exif_transpose(img)
+    if max(img.size) <= max_side:
+        return data
+    return to_png_bytes(fit_within(img.convert("RGB"), max_side))
+
+
 def binarize_mask(data: bytes, target_size: tuple[int, int]) -> bytes:
     """Return a white=regenerate / black=keep mask PNG at exactly target_size.
     Painted (non-transparent / bright) pixels -> white; everything else -> black."""

@@ -16,7 +16,7 @@ from app.engines.figure_pipeline import StagedInput, run_figure_job
 from app.llm.ollama_client import OllamaClient
 from app.models_catalog.registry import is_cloud, resolve, resolve_llm
 from app.orchestrator.memory import MemoryOrchestrator
-from app.schemas.genspec import GenSpec, Mode
+from app.schemas.genspec import LOCAL_QWEN_EDIT_MAX_SIDE, GenSpec, Mode
 from app.schemas.jobs import ProgressEvent
 from app.services import image_ops, rembg_service, storage
 
@@ -183,11 +183,18 @@ class JobWorker:
         height = image_ops.round_to_multiple(spec.height, 16)
         ctx = B.BuildContext(model=model, width=width, height=height)
 
+        # qwen-edit (edit/reference) derives the output latent from the primary image and
+        # concatenates every reference as conditioning, so input size × ref count drives the MPS
+        # attention buffer. Downscale uploads to the 24GB working-size cap to stay under the ceiling.
+        clamp_side = LOCAL_QWEN_EDIT_MAX_SIDE if spec.mode in (Mode.edit, Mode.reference) else None
+
         source_img = None
         if spec.source_asset:
             a = await repo.get_asset(spec.source_asset)
             if a:
                 data = open(a["path"], "rb").read()
+                if clamp_side:
+                    data = image_ops.downscale_to_png(data, clamp_side)
                 ctx.comfy_source = await self.comfy.upload_image(data, f"src_{spec.source_asset}.png")
                 from PIL import Image
                 import io as _io
@@ -206,6 +213,8 @@ class JobWorker:
             a = await repo.get_asset(ref.asset)
             if a:
                 data = open(a["path"], "rb").read()
+                if clamp_side:
+                    data = image_ops.downscale_to_png(data, clamp_side)
                 ctx.comfy_refs.append(await self.comfy.upload_image(data, f"ref_{ref.asset}.png"))
         return ctx
 

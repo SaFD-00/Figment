@@ -59,29 +59,29 @@ def test_reference_routes_to_qwen_edit():
 
 
 def test_reference_multi_routes_to_qwen_edit_plus():
-    # Two or more references → multi-image node, one LoadImage each, wired image1..imageN.
+    # Two references → multi-image node, one LoadImage each, wired image1..imageN.
     spec = GenSpec(mode=Mode.reference, model="qwen-edit", prompt="blend these")
-    res = B.build(spec, _ctx("qwen-edit", refs=["imggen/a.png", "imggen/b.png", "imggen/c.png"]))
+    res = B.build(spec, _ctx("qwen-edit", refs=["imggen/a.png", "imggen/b.png"]))
     _assert_graph(res)
     types = [n["class_type"] for n in res.graph.values()]
     assert "TextEncodeQwenImageEditPlus" in types
     assert "TextEncodeQwenImageEdit" not in types
-    assert types.count("LoadImage") == 3
+    assert types.count("LoadImage") == 2
     pos = next(n for n in res.graph.values()
                if n["class_type"] == "TextEncodeQwenImageEditPlus" and n["inputs"].get("prompt"))
-    assert {"image1", "image2", "image3"} <= set(pos["inputs"].keys())
+    assert {"image1", "image2"} <= set(pos["inputs"].keys())
 
 
-def test_reference_multi_clamps_to_three():
-    # More refs than the node supports (image1..image3) → clamp to 3, no image4.
+def test_reference_multi_clamps_to_two():
+    # More refs than 24GB allows → clamp to LOCAL_QWEN_EDIT_MAX_REFS (=2), no image3.
     spec = GenSpec(mode=Mode.reference, model="qwen-edit", prompt="blend")
     res = B.build(spec, _ctx("qwen-edit", refs=[f"imggen/r{i}.png" for i in range(5)]))
     _assert_graph(res)
     types = [n["class_type"] for n in res.graph.values()]
-    assert types.count("LoadImage") == 3
+    assert types.count("LoadImage") == 2
     pos = next(n for n in res.graph.values()
                if n["class_type"] == "TextEncodeQwenImageEditPlus" and n["inputs"].get("prompt"))
-    assert "image4" not in pos["inputs"]
+    assert "image3" not in pos["inputs"]
 
 
 def test_controlnet_sdxl():

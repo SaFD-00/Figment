@@ -198,8 +198,9 @@ def build_edit_qwen(spec: GenSpec, ctx: BuildContext) -> BuildResult:
     vae_link = [vae, 0]
     model_link, clip_link = _apply_loras(g, model_link, clip_link, m, spec)
     # Effective reference images: source (if any) first, then the uploaded refs. The multi-image
-    # node TextEncodeQwenImageEditPlus exposes image1..image3 only, so clamp to that (see
-    # docs/WORKFLOWS.md). LoadImage has a single IMAGE output, so N images need N LoadImage nodes.
+    # node TextEncodeQwenImageEditPlus exposes image1..image3, but LOCAL_QWEN_EDIT_MAX_REFS clamps
+    # below that to fit the 24GB MPS attention ceiling (see docs/WORKFLOWS.md). LoadImage has a
+    # single IMAGE output, so N images need N LoadImage nodes.
     imgs = ([ctx.comfy_source] if ctx.comfy_source else []) + list(ctx.comfy_refs)
     imgs = imgs[:LOCAL_QWEN_EDIT_MAX_REFS] or [""]   # keep the empty-input fallback for no images
     loads = [g.add("LoadImage", {"image": ref}) for ref in imgs]

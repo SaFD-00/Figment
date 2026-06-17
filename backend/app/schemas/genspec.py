@@ -23,10 +23,19 @@ ControlType = Literal["canny", "depth", "scribble", "lineart"]
 MAX_REFERENCE_IMAGES = 6
 
 # Local qwen-edit multi-reference cap: the ComfyUI node TextEncodeQwenImageEditPlus exposes
-# image1..image3 only. The builder clamps to this; the global cap above stays the outer bound
-# (a hand-crafted 6-ref local request degrades to the first 3 rather than erroring).
-# Mirror in frontend/lib/constants.ts (LOCAL_MAX_REFERENCE_IMAGES).
-LOCAL_QWEN_EDIT_MAX_REFS = 3
+# image1..image3, but on a 24GB Apple-Silicon box 3 references blow the MPS attention buffer
+# past its single-allocation ceiling ("Invalid buffer size: ~16.5 GiB" mid-sampling — each ref
+# concatenates ~4k conditioning tokens and the score matrix grows with the square of the total).
+# Two references + the clamped working size below stay comfortably under that ceiling. The builder
+# clamps to this; the global cap above stays the outer bound (a hand-crafted 6-ref local request
+# degrades to the first 2 rather than erroring). Mirror in frontend/lib/constants.ts.
+LOCAL_QWEN_EDIT_MAX_REFS = 2
+
+# Local qwen-edit (edit/reference) working-size cap, longest side in px. The output latent is
+# VAE-encoded from the primary image (builder.build_edit_qwen), so the *input* image size sets the
+# generated resolution. Source + reference uploads are downscaled to this before they reach ComfyUI
+# (see orchestrator.queue._prepare_inputs) to keep the attention buffer within the 24GB MPS ceiling.
+LOCAL_QWEN_EDIT_MAX_SIDE = 1024
 
 
 class ReferenceImage(BaseModel):
