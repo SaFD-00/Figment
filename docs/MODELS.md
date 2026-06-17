@@ -59,3 +59,14 @@ The FigGen pipeline keeps its own per-feature defaults (`FIGGEN_*_MODEL`) indepe
 `scripts/20_download_models.sh [qwen|sdxl|edit|ref|all]`. Repo ids marked **(VERIFY)** are
 best-guess — confirm on huggingface.co before a fresh-machine run, then update `registry.py` filenames
 to match. Cloud models need no download (API only).
+
+## Readiness & verify
+`engines/model_ready(m)` reports whether a catalog entry can run **right now**: a local-comfy model is
+ready when its primary weight file exists under `AIStudio/models/`, a cloud model when its provider key
+is set, and the local-ollama LLM is assumed installed (verified at job time). `scripts/figment models`
+and `scripts/figment doctor` surface this per model.
+
+`scripts/figment verify` goes further — it **actually runs** each entry's real pipeline (local generation,
+cloud figure pipeline, chat/enhance, post-ops) and asserts a plausible result. An unready entry is a clean
+**SKIP** with the exact missing weight file / service / key, so the matrix is honest on a partially-provisioned
+machine (a keyless cloud model SKIPs rather than passing on the mock provider). See WORKFLOWS.md → *Verify matrix*.

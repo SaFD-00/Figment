@@ -45,3 +45,26 @@ address a reference by name/filename in the prompt.
 LLM (`keep_alive:0`) when model+LLM exceed budget, downshift to a lighter equivalent when one
 exists. `LIGHTER_EQUIVALENT` is empty in the trimmed lineup, so an over-budget model runs as-is
 (use a smaller Qwen GGUF quant + sequential offload on tight memory).
+
+## CLI generation (in-process)
+`scripts/figment generate --mode <m>` builds a `GenSpec` from flags and runs it through the **same**
+`JobWorker`/builder path as `/jobs` (no parallel engine — see ARCHITECTURE.md → *CLI*). The `--mode`
+maps 1:1 to the builder table above: `txt2img`/`img2img` → `build_txt2img_*`/`build_img2img`,
+`inpaint` → `build_inpaint_sdxl` (`--source` + `--mask`), `edit`/`reference` → `build_edit_qwen`
+(`--source` and/or `--ref` ×N, clamped to 3), `controlnet` → `build_controlnet_sdxl` (`--controlnet-type`).
+`--upscale` is a post-step the CLI chains itself (the worker only chains `--remove-bg`).
+
+## Verify matrix
+`scripts/figment verify` (`backend/app/cli/verify.py`) exercises every builder above via `run_genspec`,
+plus the LLM and post-op paths. Each case declares prerequisites and **SKIPs** with a precise reason when
+one is unmet (never a false FAIL):
+
+| Group | Cases | Builder / path exercised | Gated on |
+|---|---|---|---|
+| LOCAL | qwen-image txt2img/img2img · qwen-edit edit(1)/edit(multi)/reference · pony-v6 txt2img/controlnet · lustify-inpaint inpaint | `build_txt2img_qwen`/`build_img2img`/`build_edit_qwen`/`build_controlnet_sdxl`/`build_inpaint_sdxl` | ComfyUI up · weight file on disk · (net for source/ref) |
+| CLOUD | seedream-4.5 txt2img/edit/reference | FigGen figure pipeline → preview PNG + SVG/PPTX sidecars | `OPENROUTER_API_KEY` (keyless ⇒ SKIP, never a mock pass) |
+| LLM | qwen3-vl-local chat/enhance · gemma-4-31b chat/enhance | `llm/routing.chat_stream` + `build_enhance_messages` (vision) | Ollama tag pulled / OpenRouter key |
+| POSTOP | upscale · removebg · whitebg · export svg/pptx | `pipeline.upscale_image` · `rembg` · `export_ops` | upscale: ComfyUI + Real-ESRGAN weight; rest: always (net for sample) |
+
+Sample photos come from picsum.photos by fixed seed (cached under `AIStudio/testdata/`); the inpaint mask
+is generated locally (PIL). Exit code = number of FAILs; SKIPs never fail the run.

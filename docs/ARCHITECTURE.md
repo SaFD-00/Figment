@@ -65,6 +65,15 @@ FastAPI backend (:8000)
   dir, a moved `AISTUDIO_HOME`), so every file-touching endpoint guards with `_require_file` →
   a clean **404** instead of a `FileNotFoundError` 500. The frontend hides such broken thumbnails
   (`lib/img.ts:hideBrokenImage`) rather than showing the browser's broken-image icon.
+- **CLI (in-process)** (`backend/app/cli/`, run via `scripts/figment` → `python -m app.cli`): a terminal
+  front-end that needs **no uvicorn and no Next.js**. `cli/runtime.py:app_runtime` replicates `main.py:lifespan`
+  (init_db → `deps.worker().start()` → `deps.shutdown()` + close_db), skipping only the advisory ComfyUI
+  node-validation probe (`doctor` runs that on demand). `cli/runtime.py:run_genspec` submits a GenSpec to the
+  **same** `JobWorker` the `/jobs` route uses and streams its progress events to a terminal bar — so there is
+  **no parallel engine**, the CLI exercises the identical production path. Input images are staged exactly like
+  `/uploads` (`stage_image_asset` reuses `image_ops` + `storage`); post-ops/export/enhance/chat reuse
+  `orchestrator/pipeline`, `services/export_ops`, and `llm/routing`. `cli/verify.py` drives that same
+  `run_genspec` to exercise every pipeline (see WORKFLOWS.md → *Verify matrix*).
 
 ## Why these choices
 - **ComfyUI** as the single engine: one backend covers txt2img/img2img/inpaint/edit/controlnet/reference/
