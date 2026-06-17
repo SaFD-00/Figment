@@ -36,11 +36,11 @@ editor chat, and reference panel), grouped Local / Cloud. **There is no model co
 it only holds API keys, service URLs, and fallback defaults.
 - **Cloud image** (OpenRouter): GPT Image 2, Nano Banana 2, SeeDream 4.5, FLUX.2 Max/Pro/Flex
 - **Cloud LLM** (OpenRouter): Gemma 4 31B — a free **multimodal** model
-- **Local** (ComfyUI/Ollama, uncensored): Qwen-Image 2512, Qwen-Edit (edit + reference), Pony V6, LUSTIFY SDXL inpaint, Qwen3-VL 8B abliterated (chat/planner, **multimodal**)
+- **Local** (ComfyUI/Ollama, uncensored): Qwen-Image 2512, Qwen-Edit (edit + reference), Pony V6, LUSTIFY SDXL inpaint, Gemma 4 E4B abliterated (chat/planner, **multimodal**)
 
 The selected model drives the whole pipeline: image generation, and the **chat/planner LLM follows
 your pick too** — a local LLM streams from **Ollama**, a cloud LLM from **OpenRouter** (the same LLM
-also powers **Prompt Enhance** in the composer). Both the local Qwen3-VL and the cloud Gemma are
+also powers **Prompt Enhance** in the composer). Both the local Gemma 4 E4B and the cloud Gemma 4 31B are
 **multimodal**, so Prompt Enhance can read an uploaded edit/reference image on either route. Cloud image
 models route through the **figure pipeline** (structured FigureSpec → editable SVG/PPTX); local image
 models route through **ComfyUI**. With no API key, cloud options are disabled in the picker and the
@@ -76,7 +76,7 @@ Local models (optional, 24GB+ Apple Silicon) — provisioning order:
 scripts/10_install_comfyui.sh        # ComfyUI + its venv (MPS torch)
 scripts/11_install_custom_nodes.sh   # ComfyUI-GGUF + controlnet_aux preprocessors
 scripts/20_download_models.sh all    # all weights → AIStudio/models (~60GB)
-scripts/21_pull_ollama_models.sh     # the local chat/planner LLM (~6GB)
+scripts/21_pull_ollama_models.sh     # the local chat/planner LLM (~9.6GB)
 scripts/30_run_comfyui.sh            # start ComfyUI (:8188)
 scripts/31_run_ollama.sh             # start Ollama (:11434)
 scripts/figment verify               # confirm every pipeline (PASS/SKIP/FAIL matrix)
@@ -90,7 +90,7 @@ backend **in-process** (same job worker, registry, and DB as the web app) and re
 ```bash
 scripts/figment generate "a red fox in a snowy forest" --mode txt2img --out fox.png
 scripts/figment generate "make it winter" --mode edit --source photo.png
-scripts/figment enhance "창가의 고양이" --llm-model qwen3-vl-local   # rich English prompt → stdout
+scripts/figment enhance "창가의 고양이" --llm-model gemma-4-local   # rich English prompt → stdout
 scripts/figment upscale fox.png        # also: removebg / whitebg (raw image files)
 scripts/figment export <asset_id> --fmt pptx
 scripts/figment chat "데이터센터 다이어그램 만들어줘"               # streams reply + GENSPEC

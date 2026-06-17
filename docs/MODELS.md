@@ -42,8 +42,8 @@ ControlNet (SDXL, `controlnet/`): `xinsir/controlnet-canny-sdxl-1.0`, `…-depth
 ## Chat / planner LLMs
 
 **Local (Ollama):**
-- `qwen3-vl-local` — `huihui_ai/qwen3-vl-abliterated:8b` (~6.1GB) — the single local chat/planner LLM,
-  an uncensored **multimodal** (`vision=True`) Qwen3-VL so local Prompt Enhance can read images too.
+- `gemma-4-local` — `huihui_ai/gemma-4-abliterated:e4b` (~9.6GB) — the single local chat/planner LLM,
+  an uncensored **multimodal** (`vision=True`) Gemma 4 E4B so local Prompt Enhance can read images too.
 
 **Cloud (OpenRouter):** `gemma-4-31b` (`google/gemma-4-31b-it:free`) — a single free **multimodal**
 (`vision=True`) model.

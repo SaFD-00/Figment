@@ -63,7 +63,7 @@ one is unmet (never a false FAIL):
 |---|---|---|---|
 | LOCAL | qwen-image txt2img/img2img · qwen-edit edit(1)/edit(multi)/reference · pony-v6 txt2img/controlnet · lustify-inpaint inpaint | `build_txt2img_qwen`/`build_img2img`/`build_edit_qwen`/`build_controlnet_sdxl`/`build_inpaint_sdxl` | ComfyUI up · weight file on disk · (net for source/ref) |
 | CLOUD | seedream-4.5 txt2img/edit/reference | FigGen figure pipeline → preview PNG + SVG/PPTX sidecars | `OPENROUTER_API_KEY` (keyless ⇒ SKIP, never a mock pass) |
-| LLM | qwen3-vl-local chat/enhance · gemma-4-31b chat/enhance | `llm/routing.chat_stream` + `build_enhance_messages` (vision) | Ollama tag pulled / OpenRouter key |
+| LLM | gemma-4-local chat/enhance · gemma-4-31b chat/enhance | `llm/routing.chat_stream` + `build_enhance_messages` (vision) | Ollama tag pulled / OpenRouter key |
 | POSTOP | upscale · removebg · whitebg · export svg/pptx | `pipeline.upscale_image` · `rembg` · `export_ops` | upscale: ComfyUI + Real-ESRGAN weight; rest: always (net for sample) |
 
 Sample photos come from picsum.photos by fixed seed (cached under `AIStudio/testdata/`); the inpaint mask

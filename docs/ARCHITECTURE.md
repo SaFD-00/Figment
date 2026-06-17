@@ -15,7 +15,7 @@ FastAPI backend (:8000)
         │ HTTP /api/chat            │ HTTP /prompt + WS /ws
         ▼                           ▼
    Ollama (:11434)            ComfyUI (:8188, MPS, GGUF)
-   Qwen3-VL 8B abliterated    Qwen-Image/Qwen-Edit/Pony/LUSTIFY-Inpaint/ControlNet/RealESRGAN (all uncensored)
+   Gemma 4 E4B abliterated    Qwen-Image/Qwen-Edit/Pony/LUSTIFY-Inpaint/ControlNet/RealESRGAN (all uncensored)
    (uncensored, multimodal)
         └────────── shared 24GB unified memory (one big model at a time) ──────────┘
                                   ▼ writes
@@ -37,7 +37,7 @@ FastAPI backend (:8000)
   optional **`image`** data URL: for **edit/reference** modes the home composer sends the first uploaded
   image, and `_enhance_image_url` attaches it as an OpenAI-style multimodal part whenever the **picked**
   model is a **vision** model — provider-agnostic, gated on `ModelDef.vision` alone (both the local
-  `qwen3-vl-local` and the cloud `gemma-4-31b` qualify) — normalized to a ≤768px PNG via `image_ops`. The
+  `gemma-4-local` and the cloud `gemma-4-31b` qualify) — normalized to a ≤768px PNG via `image_ops`. The
   cloud route forwards those parts as-is; the local route is served by `ollama_client.py:_to_ollama_messages`,
   which converts them into Ollama's native per-message `images` array, so local vision enhance works too.
   The frontend drops the result into the prompt box with a one-step ↶ undo. (Distinct from the
