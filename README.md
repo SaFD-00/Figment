@@ -82,6 +82,12 @@ scripts/31_run_ollama.sh             # start Ollama (:11434)
 scripts/figment verify               # confirm every pipeline (PASS/SKIP/FAIL matrix)
 ```
 
+**The local engine needs two servers running:** **ComfyUI** on `:8188` (local image models) and
+**Ollama** on `:11434` (local chat/planner LLM + Prompt Enhance). Start both with
+`scripts/30_run_comfyui.sh` and `scripts/31_run_ollama.sh` before picking any **Local** model in the
+UI — if either is down, its local options are unavailable and `figment verify` reports a clean **SKIP**
+for that engine (Ollama often already runs as a background service). Cloud models need neither.
+
 ## CLI
 
 The whole studio runs from the terminal too — **no web app, no server**. `scripts/figment` boots the
