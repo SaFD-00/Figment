@@ -90,11 +90,11 @@ async def test_enhance_returns_joined_prompt(monkeypatch):
         promptmod, "chat_stream",
         _recording_stream(["a photorealistic ", "ginger cat on a ", "sunlit windowsill"], captured),
     )
-    res = await enhance(EnhanceRequest(prompt="고양이", image_model="qwen-image", llm_model="qwen3-vl-local"))
+    res = await enhance(EnhanceRequest(prompt="고양이", image_model="qwen-image", llm_model="gemma-4-local"))
     assert res.prompt == "a photorealistic ginger cat on a sunlit windowsill"
     # routed via the enhance system prompt (not the chat refiner) and forwarded the picker LLM id
     assert "Output ONLY the rewritten prompt text" in _system(captured["messages"])
-    assert captured["llm_model"] == "qwen3-vl-local"
+    assert captured["llm_model"] == "gemma-4-local"
 
 
 async def test_enhance_cleans_stream(monkeypatch):
@@ -133,8 +133,8 @@ async def test_enhance_attaches_image_for_vision_cloud_llm(monkeypatch):
 async def test_enhance_attaches_image_for_vision_local_llm(monkeypatch):
     captured: dict = {}
     monkeypatch.setattr(promptmod, "chat_stream", _recording_stream(["x"], captured))
-    # qwen3-vl-local is a LOCAL vision model → image attached too (gated on vision, not provider)
-    await enhance(EnhanceRequest(prompt="cat", llm_model="qwen3-vl-local", image=_png_data_url()))
+    # gemma-4-local is a LOCAL vision model → image attached too (gated on vision, not provider)
+    await enhance(EnhanceRequest(prompt="cat", llm_model="gemma-4-local", image=_png_data_url()))
     assert isinstance(captured["messages"][-1]["content"], list)  # multimodal attached
 
 

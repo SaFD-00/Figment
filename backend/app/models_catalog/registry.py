@@ -139,14 +139,14 @@ MODELS: dict[str, ModelDef] = {
 # ── Chat / planner LLM models ───────────────────────────────────────────────
 LLM_MODELS: dict[str, ModelDef] = {
     # Single local LLM: an uncensored multimodal (vision) model so prompt-enhance can read an
-    # uploaded edit/reference image locally too — not just on the cloud route. Qwen3-VL abliterated
-    # keeps the Qwen lineage with vision added; the Ollama client converts OpenAI-style multimodal
-    # messages into Ollama's native per-message `images` array.
-    "qwen3-vl-local": ModelDef(
-        id="qwen3-vl-local", family="ollama",
-        label="Qwen3-VL 8B Abliterated (local · Ollama, multimodal)",
-        vram_gb=7.0, supports=(), engine=ENGINE_LOCAL_OLLAMA, kind="llm", provider="ollama",
-        cloud_model_id="huihui_ai/qwen3-vl-abliterated:8b", vision=True,
+    # uploaded edit/reference image locally too — not just on the cloud route. Gemma 4 E4B
+    # abliterated is an "effective 4B" (MatFormer) model with vision; the Ollama client converts
+    # OpenAI-style multimodal messages into Ollama's native per-message `images` array.
+    "gemma-4-local": ModelDef(
+        id="gemma-4-local", family="ollama",
+        label="Gemma 4 E4B Abliterated (local · Ollama, multimodal)",
+        vram_gb=10.0, supports=(), engine=ENGINE_LOCAL_OLLAMA, kind="llm", provider="ollama",
+        cloud_model_id="huihui_ai/gemma-4-abliterated:e4b", vision=True,
     ),
     # Single cloud LLM: a free multimodal model so prompt-enhance can read an uploaded
     # image (edit/reference modes). Gemma 4 31B tops OpenRouter's free vision tier.

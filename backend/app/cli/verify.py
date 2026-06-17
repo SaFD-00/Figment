@@ -297,8 +297,8 @@ def _build_cases(pid: str, pre: Prereqs, s: Samples) -> list[VerifyCase]:
                                   reference_images=[ReferenceImage(asset=a) for a in (s.ref1,) if a])),
 
         # ── LLM (chat + vision enhance) ──
-        llm_chat("qwen3-vl-local / chat", ["ollama", "model-tag:qwen3-vl-local"], "qwen3-vl-local"),
-        llm_enhance("qwen3-vl-local / enhance", ["ollama", "model-tag:qwen3-vl-local", "net"], "qwen3-vl-local"),
+        llm_chat("gemma-4-local / chat", ["ollama", "model-tag:gemma-4-local"], "gemma-4-local"),
+        llm_enhance("gemma-4-local / enhance", ["ollama", "model-tag:gemma-4-local", "net"], "gemma-4-local"),
         llm_chat("gemma-4-31b / chat", ["openrouter"], "gemma-4-31b"),
         llm_enhance("gemma-4-31b / enhance", ["openrouter", "net"], "gemma-4-31b"),
 
