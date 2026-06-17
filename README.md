@@ -15,6 +15,9 @@ backend that can drive **cloud models** (OpenRouter) and **local models**
   prompt; your selected LLM does the rewrite (comma-tags for SDXL/Pony, natural language otherwise) and
   **↶ undo** restores the original. Add an optional **"how to enhance"** note to steer the rewrite, and
   in **edit/reference** modes a **multimodal LLM** reads your uploaded image to ground the prompt.
+  With a **local** LLM the *first* enhance may lag while the model cold-loads (the model isn't
+  pre-loaded at boot, since your pick could be a cloud API); the UI auto-retries once on the warmed
+  model, so just wait or click again — cloud LLMs have no such warmup.
   Available in both the home composer and the editor chat.
 
 **Edit** — Refine without starting over

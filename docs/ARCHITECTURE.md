@@ -42,6 +42,13 @@ FastAPI backend (:8000)
   which converts them into Ollama's native per-message `images` array, so local vision enhance works too.
   The frontend drops the result into the prompt box with a one-step ↶ undo. (Distinct from the
   diagram's ComfyUI `/prompt`, which is the local image engine on :8188.)
+  **Network resilience**: a local LLM's *first* enhance is a cold model load that can exceed the
+  Next dev proxy's ~30s window → the proxy resets the socket (`ECONNRESET` / "socket hang up").
+  The httpx clients use bounded timeouts (`ollama_client`/`openrouter_client`, not `timeout=None`)
+  so a stuck call errors instead of hanging, and the frontend (`lib/api.ts:enhancePrompt`) retries
+  **once** — the first attempt warms the model (Ollama `keep_alive`), so the retry lands warm.
+  We deliberately do **not** pre-warm the LLM at boot: the pick may be a cloud API, so eagerly
+  loading the local model would waste unified memory; the cold cost is paid lazily on first use.
 - **Job execution** (`orchestrator/queue.py`): resolve model → `MemoryOrchestrator.ensure_ready_for`
   (free ComfyUI / unload LLM as needed) → upload input images to ComfyUI → `builder.build()` →
   connect `/ws` (sentinel) → `queue_prompt` → map progress to SSE → fetch result from `/history`+`/view`
@@ -53,6 +60,11 @@ FastAPI backend (:8000)
   (source + mask) → `POST /jobs {mode:inpaint}` → `build_inpaint_sdxl` (LUSTIFY 9-ch inpaint).
 - **Toolbar one-shots**: `POST /assets/{id}/upscale|whitebg|removebg` (upscale via a tiny ComfyUI
   graph polled on `/history`; bg-removal via rembg on CPU).
+- **Asset serving** (`routers/assets.py`): `GET /assets/{id}/file` and `…/export` stream the file
+  off disk. Asset rows can outlive their files (manual cleanup, a deleted project's leftover output
+  dir, a moved `AISTUDIO_HOME`), so every file-touching endpoint guards with `_require_file` →
+  a clean **404** instead of a `FileNotFoundError` 500. The frontend hides such broken thumbnails
+  (`lib/img.ts:hideBrokenImage`) rather than showing the browser's broken-image icon.
 
 ## Why these choices
 - **ComfyUI** as the single engine: one backend covers txt2img/img2img/inpaint/edit/controlnet/reference/
