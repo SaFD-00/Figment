@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { assetFileUrl, enhancePrompt, getMessages } from "../../lib/api";
+import { hideBrokenImage } from "../../lib/img";
 import { streamChat } from "../../lib/sse";
 import { useEditorStore } from "../../lib/store";
 import { useModelsStore } from "../../lib/models";
@@ -357,6 +358,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           <img
             src={assetFileUrl(resultAsset)}
             alt="result"
+            onError={hideBrokenImage}
             className="mt-2 w-32 rounded-lg border border-line"
           />
         )}

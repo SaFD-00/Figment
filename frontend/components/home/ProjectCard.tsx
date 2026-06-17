@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { assetFileUrl } from "../../lib/api";
 import { relativeTime } from "../../lib/format";
+import { hideBrokenImage } from "../../lib/img";
 import type { Project } from "../../lib/types";
 
 export function ProjectCard({ project }: { project: Project }) {
@@ -18,6 +19,7 @@ export function ProjectCard({ project }: { project: Project }) {
           <img
             src={cover}
             alt={project.title}
+            onError={hideBrokenImage}
             className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
           />
         ) : (
