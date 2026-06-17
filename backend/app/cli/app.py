@@ -9,7 +9,7 @@ import argparse
 import asyncio
 import sys
 
-from app.cli import commands, render
+from app.cli import commands, render, verify
 from app.cli.runtime import CliError
 
 __version__ = "0.1.0"
@@ -104,6 +104,17 @@ def build_parser() -> argparse.ArgumentParser:
                        help="check services, keys, and per-model readiness")
     d.add_argument("--strict", action="store_true", help="exit nonzero if anything is not ready")
     d.set_defaults(func=commands.cmd_doctor)
+
+    # verify
+    v = sub.add_parser("verify", parents=[parent],
+                       help="run every pipeline (local+cloud) → PASS/SKIP/FAIL matrix")
+    v.add_argument("--local-only", dest="local_only", action="store_true", help="skip cloud (OpenRouter) cases")
+    v.add_argument("--cloud-only", dest="cloud_only", action="store_true", help="only cloud (OpenRouter) cases")
+    v.add_argument("--mode", choices=_MODES, help="only image cases of this mode")
+    v.add_argument("--offline", action="store_true", help="skip net-dependent cases (use cached samples only)")
+    v.add_argument("--keep", action="store_true", help="keep generated verify artifacts + project")
+    v.add_argument("--json", action="store_true", help="emit the matrix as JSON")
+    v.set_defaults(func=verify.cmd_verify)
 
     return p
 
