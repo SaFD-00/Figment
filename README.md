@@ -10,7 +10,7 @@ backend that can drive **cloud models** (OpenRouter) and **local models**
 **Generate** — Turn ideas into figures instantly
 - **Text-to-Figure** — schematics from text or PDFs
 - **Image-to-Figure** — sketches or photos into illustrations
-- **Reference-to-Figure** — match the style/layout of one or more references (up to **3** images on local Qwen-Edit, **6** on cloud)
+- **Reference-to-Figure** — match the style/layout of one or more references (up to **2** images on local Qwen-Edit, **6** on cloud; local inputs auto-downscaled to fit 24GB)
 - **Prompt Enhance** — one click turns a short idea (any language) into a rich, detailed **English**
   prompt; your selected LLM does the rewrite (comma-tags for SDXL/Pony, natural language otherwise) and
   **↶ undo** restores the original. Add an optional **"how to enhance"** note to steer the rewrite, and
@@ -36,7 +36,7 @@ editor chat, and reference panel), grouped Local / Cloud. **There is no model co
 it only holds API keys, service URLs, and fallback defaults.
 - **Cloud image** (OpenRouter): GPT Image 2, Nano Banana 2, SeeDream 4.5, FLUX.2 Max/Pro/Flex
 - **Cloud LLM** (OpenRouter): Gemma 4 31B — a free **multimodal** model
-- **Local** (ComfyUI/Ollama, uncensored): Qwen-Image 2512, Qwen-Edit (edit + reference), Pony V6, LUSTIFY SDXL inpaint, Gemma 4 E4B abliterated (chat/planner, **multimodal**)
+- **Local** (ComfyUI/Ollama, uncensored): Qwen-Image 2512, Qwen-Edit (edit + reference, up to 2 refs · inputs ≤1024px to fit 24GB), Pony V6, LUSTIFY SDXL inpaint, Gemma 4 E4B abliterated (chat/planner, **multimodal**)
 
 The selected model drives the whole pipeline: image generation, and the **chat/planner LLM follows
 your pick too** — a local LLM streams from **Ollama**, a cloud LLM from **OpenRouter** (the same LLM
