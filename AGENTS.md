@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) and other coding age
 
 ## What this is
 
-Figment unifies a scientific-figure pipeline (FigGen, vendored as `figgen`) and a local image studio (ImgGen) into one product: a **Next.js** UI over a single **FastAPI** backend that drives **cloud** models (OpenRouter) and **local** models (ComfyUI / Ollama), selectable **per generation mode** in the UI. The local lineup is deliberately uncensored (abliterated text encoders + NSFW LoRAs) and tuned to run within **24GB unified memory on Apple Silicon**.
+Figment unifies a scientific-figure pipeline (FigGen, vendored as `figgen`) and a local image studio (ImgGen) into one product: a **Next.js** UI over a single **FastAPI** backend that drives **cloud** models (OpenRouter) and **local** models (ComfyUI / Ollama), selectable **per generation mode** in the UI. The local lineup is deliberately uncensored (a single NSFW SDXL checkpoint, **Juggernaut XL**, + an abliterated VLM) and tuned to run within **24GB unified memory on Apple Silicon**.
 
 Deeper references live in `docs/`: `ARCHITECTURE.md` (request flows), `WORKFLOWS.md` (ComfyUI builder table, reference-image rules, verify matrix), `MODELS.md` (lineup). `README.md` is the user-facing overview. Read those before large changes — this file is the orientation, they are the detail.
 
@@ -32,7 +32,7 @@ Both servers at once (assumes ComfyUI + Ollama already running): `scripts/40_dev
 CLI — the **entire studio runs from the terminal, no web app or server** (`scripts/figment` → `python -m app.cli`, in-process):
 ```bash
 scripts/figment generate "a red fox" --mode txt2img --out fox.png   # modes: txt2img|img2img|inpaint|edit|controlnet|reference
-scripts/figment enhance "창가의 고양이" --llm-model gemma-4-local      # short idea → rich English prompt
+scripts/figment enhance "창가의 고양이" --llm-model qwen3-vl-local      # short idea → rich English prompt
 scripts/figment chat "데이터센터 다이어그램"   # streams reply + GENSPEC
 scripts/figment models | doctor                # catalog readiness ✓/✗ | service health
 scripts/figment verify [--local-only|--cloud-only|--offline|--mode edit|--json]
@@ -40,7 +40,7 @@ scripts/figment verify [--local-only|--cloud-only|--offline|--mode edit|--json]
 
 `figment verify` **actually runs** every pipeline (local ComfyUI per model/mode, cloud figure pipeline, Ollama + cloud chat/enhance, post-ops) and prints a PASS/SKIP/FAIL matrix; a missing weight / stopped service / absent key is a clean **SKIP with a reason**, never a false FAIL. Exit code = number of FAILs. This is the real integration test — unit `pytest` is mock-only.
 
-Local model provisioning (optional, 24GB+ Apple Silicon), in order: `scripts/10_install_comfyui.sh` → `11_install_custom_nodes.sh` → `20_download_models.sh all` (~60GB) → `21_pull_ollama_models.sh` → `30_run_comfyui.sh` (:8188) + `31_run_ollama.sh` (:11434).
+Local model provisioning (optional, 24GB+ Apple Silicon), in order: `scripts/10_install_comfyui.sh` → `11_install_custom_nodes.sh` → `20_download_models.sh all` (~20GB) → `21_pull_ollama_models.sh` → `30_run_comfyui.sh` (:8188) + `31_run_ollama.sh` (:11434).
 
 ## Architecture
 
@@ -67,9 +67,9 @@ AIStudio/                 git-ignored runtime home: weights, ComfyUI, outputs, d
 - **Model selection lives in the UI, never in `.env`.** `.env` holds only API keys, service URLs, and a single fallback `OLLAMA_LLM`. The picker sends a model id; image models are remembered **per mode** (frontend store `selectedByMode`). Do not hard-code model ids in routers or the builder — resolve through `registry.py`.
 - **`registry.py` is the single source of truth.** A `ModelDef` carries `engine`, `family`/`template` (which builder fn to use), `files` (local weight filenames that must match `scripts/20_download_models.sh`), `vision` (gates multimodal prompt-enhance), and for cloud/local-LLM a `cloud_model_id` (provider slug, or **Ollama tag** for local LLMs). Add a model here, not in the dispatch code.
 - **LLM routing is shared.** `llm/routing.py:resolve_chat` powers both chat and `/prompt/enhance`: a cloud LLM with a configured key → OpenRouter, a local LLM → its Ollama tag, otherwise → the default Ollama model. Keep enhance and chat on this one path.
-- **ComfyUI graphs are built programmatically** in `comfy/builder.py` (type-safe LoRA chains / ref fan-out / per-mode branching), not static JSON + placeholders. Nodes are validated at startup against live `/object_info` (`comfy/templates.py`). **GGUF / bf16 only — never fp8 (corrupts on Metal); no openpose/DWPose/InstantID (onnxruntime friction on arm64).**
-- **One-big-model rule (24GB).** `orchestrator/memory.py` serializes large models: it frees ComfyUI on a family switch and unloads the LLM (`keep_alive:0`) when model+LLM exceed budget. Heavy local edit/reference inputs are downscaled (`LOCAL_QWEN_EDIT_MAX_SIDE` ≈1024px) and reference count is clamped (`qwen-edit` = **2** refs, not the node's 3, because a 3rd overflows the MPS attention buffer).
-- **Reference-image caps are per engine**, enforced both server- and client-side: local Qwen-Edit = 2, controlnet = first ref only, cloud = up to `MAX_REFERENCE_IMAGES` (6, mirrored in `frontend/lib/constants.ts`). The UI auto-trims on a cloud→local switch.
+- **ComfyUI graphs are built programmatically** in `comfy/builder.py` (type-safe LoRA chains / per-mode branching on one SDXL checkpoint), not static JSON + placeholders. Nodes are validated at startup against live `/object_info` (`comfy/templates.py`). **safetensors / bf16 / fp16 only — never fp8 (corrupts on Metal); no openpose/DWPose/InstantID (onnxruntime friction on arm64).**
+- **One-big-model rule (24GB).** `orchestrator/memory.py` serializes large models: it frees ComfyUI on a family switch and unloads the LLM (`keep_alive:0`) when model+LLM exceed budget. Heavy local edit/reference inputs are downscaled (`LOCAL_MAX_SIDE` ≈1024px).
+- **Reference-image caps are per engine**, enforced both server- and client-side: local (IP-Adapter Plus) = **1** image, controlnet = first ref only, cloud = up to `MAX_REFERENCE_IMAGES` (6, mirrored in `frontend/lib/constants.ts`). The UI auto-trims on a cloud→local switch.
 - **Asset rows can outlive their files.** Every file-touching endpoint in `routers/assets.py` guards with `_require_file` → a clean **404** instead of a 500; the frontend hides broken thumbnails (`lib/img.ts:hideBrokenImage`). Preserve this when adding asset endpoints.
 - **The CLI shares production code paths.** `cli/runtime.py` replicates `main.py:lifespan` and submits to the **same** `JobWorker` as `/jobs` — there is no parallel engine. Changes to the job/build/post-op path must keep both the HTTP and CLI entry points working (and `verify.py` exercising them).
 - **Graceful degradation is a feature.** With no `OPENROUTER_API_KEY`, cloud options disable in the picker and the app falls back to local/mock so it runs fully offline. A cold-loading local LLM's first enhance can exceed the dev proxy window (`ECONNRESET`); clients use bounded httpx timeouts and the frontend retries enhance once. Don't add eager boot-time model warmup (the pick might be a cloud API).

@@ -1,8 +1,8 @@
 # Models
 
 The unified catalog lives in `backend/app/models_catalog/registry.py` (`MODELS` = image generation,
-`LLM_MODELS` = chat/planner). Local weights live under `<repo>/AIStudio/models/<subdir>/`. **Only GGUF /
-bf16 / safetensors — never fp8 (corrupts on Metal).**
+`LLM_MODELS` = chat/planner). Local weights live under `<repo>/AIStudio/models/<subdir>/`. **Only
+safetensors / bf16 / fp16 — never fp8 (corrupts on Metal).**
 
 **Provider note:** the cloud engine is unified on **OpenRouter** (`OPENROUTER_API_KEY`). The OpenAI
 provider path was removed — the OpenAI SDK class is retained only as the base `OpenRouterClient`
@@ -11,42 +11,47 @@ subclasses. With no key the cloud path falls back to a mock provider. Cloud slug
 
 ## Local image models (ComfyUI)
 
-The lineup is **uncensored, one or two models per function**. Generation is Qwen + Pony only;
-the **local** FLUX/Chroma families were dropped entirely (cloud FLUX.2 remains — see below).
+The local lineup is **a single uncensored SDXL checkpoint** that serves every mode. There is no Qwen
+GGUF stack and no dedicated inpaint checkpoint — one big model keeps the 24GB budget simple.
 
 | Registry id | Role | Repo (HF) | File → subdir | ~VRAM | Notes |
 |---|---|---|---|---|---|
-| `qwen-image` | **default txt2img/img2img** · uncensored | `unsloth/Qwen-Image-2512-GGUF` (VERIFY) | `*Q4_K_M.gguf → unet` + abliterated Qwen2.5-VL clip + Qwen VAE | 13GB | + 8-step Lightning + NSFW LoRA; `build_txt2img_qwen` |
-| `pony-v6` | explicit-NSFW SDXL (txt2img/img2img/controlnet) | `AiAF/ponyDiffusionV6XL_v6StartWithThisOne.safetensors` | `…safetensors → checkpoints` | 7GB | single-file SDXL; `score_*` prefix |
-| `lustify-inpaint` | **inpaint** · nsfw | `andro-flock/LUSTIFY-SDXL-NSFW-checkpoint-v2-0-INPAINTING` (VERIFY) | `lustifySDXLNSFW_v20-inpainting.safetensors → checkpoints` | 7GB | genuine 9-ch SDXL inpaint, fp16; `build_inpaint_sdxl` |
-| `qwen-edit` | **edit + reference** · uncensored | `unsloth/Qwen-Image-Edit-2511-GGUF` + `lightx2v/…Lightning` | `*Q4_K_M.gguf → unet`; lightning → loras | 13GB | shares abliterated clip/VAE with `qwen-image`; + NSFW LoRA; **multi-ref up to 3** (`TextEncodeQwenImageEditPlus`, positional Picture 1/2/3) |
+| `juggernaut-xl` | **all modes** · NSFW photoreal SDXL | `RunDiffusion/Juggernaut-XL-v9` (VERIFY) | `…safetensors → checkpoints` | 7GB | txt2img/img2img/edit via `build_txt2img_sdxl`/`build_img2img`; inpaint via `build_inpaint_sdxl` (+`SetLatentNoiseMask`, standard 4-ch checkpoint); reference via `build_reference_ipadapter` (IP-Adapter Plus); controlnet via `build_controlnet_sdxl`. Optional NSFW LoRA (strength ~0.8) in `builtin_loras` |
 
-**Uncensored Qwen stack** (qwen-image/qwen-edit): the refusal bias lives in the text encoder, not the
-DiT — so the base Qwen DiT is paired with the **abliterated Qwen2.5-VL** TE
-(`mradermacher/Qwen2.5-VL-7B-Instruct-abliterated-GGUF` Q4_K_M + mmproj → `clip`) plus a **NSFW LoRA**
-(`goonsai/qwen-image-loras` → `loras`), sharing `qwen_image_vae.safetensors` (→ `vae`). All GGUF/fp16.
+**Per-mode routing on one checkpoint** (`comfy/builder.py:build()`):
+- **txt2img / img2img** → SDXL KSampler (img2img via `VAEEncode`, `denoise` = fidelity dial).
+- **inpaint** → `VAEEncodeForInpaint` + **`SetLatentNoiseMask`** (Juggernaut is a standard 4-ch checkpoint,
+  not a 9-ch inpaint UNet, so the mask must be re-asserted on the latent), denoise ≥ 0.9.
+- **edit** → mask present ⇒ inpaint with the edit instruction as prompt; no mask ⇒ high-denoise img2img.
+  The LLM/GENSPEC planner decides whether a mask exists — the builder does not generate masks.
+- **reference** → **IP-Adapter Plus**, single reference image: `IPAdapterModelLoader` + `CLIPVisionLoader`
+  → `IPAdapterAdvanced` patches the MODEL (weight 0.6–0.8), then a normal txt2img KSampler.
+- **controlnet** → SDXL ControlNet adapter on the same checkpoint (first reference only).
 
-ControlNet (SDXL, `controlnet/`): `xinsir/controlnet-canny-sdxl-1.0`, `…-depth-sdxl-1.0`. Upscaler: Real-ESRGAN x4 (`upscale_models/`).
+**Reference / structure weights:** IP-Adapter Plus (`h94/IP-Adapter` → `ipadapter/`) + CLIP-ViT-H
+(`→ clip_vision/`), both in `IPADAPTER_FILES`. ControlNet (SDXL, `controlnet/`):
+`xinsir/controlnet-canny-sdxl-1.0`, `…-depth-sdxl-1.0`. Upscaler: Real-ESRGAN x4 (`upscale_models/`).
 
 ## Cloud image models (OpenRouter)
 
 | Registry id | Slug (`cloud_model_id`) | Modes |
 |---|---|---|
-| `gpt-image-2` | `openai/gpt-image-2` (VERIFY) | txt2img, img2img, edit, inpaint |
-| `nano-banana-2` | `google/nano-banana-2` (VERIFY) | txt2img, img2img, edit, reference |
-| `seedream-4.5` | `bytedance-seed/seedream-4.5` | txt2img, img2img, edit, reference |
-| `flux2-max` | `black-forest-labs/flux.2-max` | txt2img, img2img, edit, reference |
-| `flux2-pro` | `black-forest-labs/flux.2-pro` | txt2img, img2img, edit, reference |
-| `flux2-flex` | `black-forest-labs/flux.2-flex` | txt2img, img2img, edit, reference |
+| `gpt-image-2` | `openai/gpt-5.4-image-2` (VERIFY) | txt2img, img2img, edit, inpaint, reference |
+| `gpt-image-1` | `openai/gpt-5-image` (VERIFY) | txt2img, img2img, edit, inpaint, reference |
+| `gemini-flash-image` | `google/gemini-3.1-flash-image` (VERIFY) | txt2img, img2img, edit, reference |
+| `gemini-pro-image` | `google/gemini-3-pro-image` (VERIFY) | txt2img, img2img, edit, reference |
 
-## Chat / planner LLMs
+## Chat / planner LLMs (all multimodal VLMs)
 
 **Local (Ollama):**
-- `gemma-4-local` — `huihui_ai/gemma-4-abliterated:e4b` (~9.6GB) — the single local chat/planner LLM,
-  an uncensored **multimodal** (`vision=True`) Gemma 4 E4B so local Prompt Enhance can read images too.
+- `qwen3-vl-local` — `huihui_ai/qwen3-vl-abliterated:8b` (~5GB, VERIFY tag) — the single local
+  chat/planner VLM, an uncensored **multimodal** (`vision=True`) Qwen3-VL so local Prompt Enhance can
+  read images too. Mirrors `config.ollama_llm` / `.env` `OLLAMA_LLM`.
 
-**Cloud (OpenRouter):** `gemma-4-31b` (`google/gemma-4-31b-it:free`) — a single free **multimodal**
-(`vision=True`) model.
+**Cloud (OpenRouter):** all **multimodal** (`vision=True`):
+- `gemini-2.5-flash` (`google/gemini-2.5-flash`)
+- `gpt-5.4-mini` (`openai/gpt-5.4-mini`, VERIFY)
+- `qwen3-6-flash` (`qwen/qwen3-6-flash`, VERIFY)
 
 Prompt Enhance attaches an uploaded edit/reference image whenever the **picked** model is vision-capable,
 regardless of provider (`routers/prompt.py:_enhance_image_url` gates on `ModelDef.vision` alone). The cloud
@@ -56,7 +61,8 @@ A non-vision/unknown pick degrades to text-only enhance.
 The FigGen pipeline keeps its own per-feature defaults (`FIGGEN_*_MODEL`) independent of this catalog.
 
 ## Download
-`scripts/20_download_models.sh [qwen|sdxl|edit|ref|all]`. Repo ids marked **(VERIFY)** are
+`scripts/20_download_models.sh [sdxl|ref|all]` (`sdxl` = Juggernaut XL + VAE; `ref` = IP-Adapter Plus
++ CLIP-ViT-H + ControlNet + Real-ESRGAN). Repo ids marked **(VERIFY)** are
 best-guess — confirm on huggingface.co before a fresh-machine run, then update `registry.py` filenames
 to match. Cloud models need no download (API only).
 

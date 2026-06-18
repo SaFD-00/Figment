@@ -10,9 +10,9 @@ backend that can drive **cloud models** (OpenRouter) and **local models**
 **Generate** — Turn ideas into figures instantly
 - **Text-to-Figure** — schematics from text or PDFs
 - **Image-to-Figure** — sketches or photos into illustrations
-- **Reference-to-Figure** — match the style/layout of one or more references (up to **2** images on local Qwen-Edit, **6** on cloud; local inputs auto-downscaled to fit 24GB)
+- **Reference-to-Figure** — match the style/layout of a reference (**1** image on local via IP-Adapter Plus, **6** on cloud; local inputs auto-downscaled to fit 24GB)
 - **Prompt Enhance** — one click turns a short idea (any language) into a rich, detailed **English**
-  prompt; your selected LLM does the rewrite (comma-tags for SDXL/Pony, natural language otherwise) and
+  prompt; your selected LLM does the rewrite (comma-tags for the local SDXL model, natural language otherwise) and
   **↶ undo** restores the original. Add an optional **"how to enhance"** note to steer the rewrite, and
   in **edit/reference** modes a **multimodal LLM** reads your uploaded image to ground the prompt.
   With a **local** LLM the *first* enhance may lag while the model cold-loads (the model isn't
@@ -34,17 +34,17 @@ Pick the **image** model **per function** (each generation mode remembers its ow
 **chat/planner LLM** right in the UI — an inline **pill picker** in the composer (home prompt box,
 editor chat, and reference panel), grouped Local / Cloud. **There is no model config in `.env`** —
 it only holds API keys, service URLs, and fallback defaults.
-- **Cloud image** (OpenRouter): GPT Image 2, Nano Banana 2, SeeDream 4.5, FLUX.2 Max/Pro/Flex
-- **Cloud LLM** (OpenRouter): Gemma 4 31B — a free **multimodal** model
-- **Local** (ComfyUI/Ollama, uncensored): Qwen-Image 2512, Qwen-Edit (edit + reference, up to 2 refs · inputs ≤1024px to fit 24GB), Pony V6, LUSTIFY SDXL inpaint, Gemma 4 E4B abliterated (chat/planner, **multimodal**)
+- **Cloud image** (OpenRouter): GPT Image 2, GPT Image 1, Gemini 3.1 Flash Image, Gemini 3 Pro Image
+- **Cloud LLM/VLM** (OpenRouter): Gemini 2.5 Flash, GPT-5.4 mini, Qwen3.6 Flash — all **multimodal**
+- **Local** (ComfyUI/Ollama, uncensored): **Juggernaut XL** (single NSFW SDXL checkpoint serving every mode — txt2img/img2img/inpaint/edit, reference via IP-Adapter Plus, controlnet · single ref · inputs ≤1024px to fit 24GB), **Huihui Qwen3-VL 8B abliterated** (chat/planner VLM, **multimodal**)
 
 The selected model drives the whole pipeline: image generation, and the **chat/planner LLM follows
 your pick too** — a local LLM streams from **Ollama**, a cloud LLM from **OpenRouter** (the same LLM
-also powers **Prompt Enhance** in the composer). Both the local Gemma 4 E4B and the cloud Gemma 4 31B are
-**multimodal**, so Prompt Enhance can read an uploaded edit/reference image on either route. Cloud image
-models route through the **figure pipeline** (structured FigureSpec → editable SVG/PPTX); local image
-models route through **ComfyUI**. With no API key, cloud options are disabled in the picker and the
-app falls back to local/mock so it runs fully offline.
+also powers **Prompt Enhance** in the composer). Every chat/planner model is **multimodal** (the local
+Qwen3-VL and the cloud VLMs), so Prompt Enhance can read an uploaded edit/reference image on either
+route. Cloud image models route through the **figure pipeline** (structured FigureSpec → editable
+SVG/PPTX); local image models route through **ComfyUI**. With no API key, cloud options are disabled
+in the picker and the app falls back to local/mock so it runs fully offline.
 
 ## Architecture
 
@@ -74,9 +74,9 @@ Local models (optional, 24GB+ Apple Silicon) — provisioning order:
 
 ```bash
 scripts/10_install_comfyui.sh        # ComfyUI + its venv (MPS torch)
-scripts/11_install_custom_nodes.sh   # ComfyUI-GGUF + controlnet_aux preprocessors
-scripts/20_download_models.sh all    # all weights → AIStudio/models (~60GB)
-scripts/21_pull_ollama_models.sh     # the local chat/planner LLM (~9.6GB)
+scripts/11_install_custom_nodes.sh   # IP-Adapter Plus + controlnet_aux preprocessors
+scripts/20_download_models.sh all    # all weights → AIStudio/models (~20GB)
+scripts/21_pull_ollama_models.sh     # the local chat/planner VLM (~5GB)
 scripts/30_run_comfyui.sh            # start ComfyUI (:8188)
 scripts/31_run_ollama.sh             # start Ollama (:11434)
 scripts/figment verify               # confirm every pipeline (PASS/SKIP/FAIL matrix)
@@ -96,7 +96,7 @@ backend **in-process** (same job worker, registry, and DB as the web app) and re
 ```bash
 scripts/figment generate "a red fox in a snowy forest" --mode txt2img --out fox.png
 scripts/figment generate "make it winter" --mode edit --source photo.png
-scripts/figment enhance "창가의 고양이" --llm-model gemma-4-local   # rich English prompt → stdout
+scripts/figment enhance "창가의 고양이" --llm-model qwen3-vl-local   # rich English prompt → stdout
 scripts/figment upscale fox.png        # also: removebg / whitebg (raw image files)
 scripts/figment export <asset_id> --fmt pptx
 scripts/figment chat "데이터센터 다이어그램 만들어줘"               # streams reply + GENSPEC

@@ -14,8 +14,8 @@ FastAPI backend (:8000)
   db/       aiosqlite (WAL)  ·  services/ image_ops · rembg · storage
         │ HTTP /api/chat            │ HTTP /prompt + WS /ws
         ▼                           ▼
-   Ollama (:11434)            ComfyUI (:8188, MPS, GGUF)
-   Gemma 4 E4B abliterated    Qwen-Image/Qwen-Edit/Pony/LUSTIFY-Inpaint/ControlNet/RealESRGAN (all uncensored)
+   Ollama (:11434)            ComfyUI (:8188, MPS, SDXL)
+   Qwen3-VL 8B abliterated    Juggernaut XL (NSFW) — all modes + IP-Adapter/ControlNet/RealESRGAN
    (uncensored, multimodal)
         └────────── shared 24GB unified memory (one big model at a time) ──────────┘
                                   ▼ writes
@@ -36,8 +36,8 @@ FastAPI backend (:8000)
   carries an optional **`instruction`** (the user's "how to enhance" note, woven into the user turn) and an
   optional **`image`** data URL: for **edit/reference** modes the home composer sends the first uploaded
   image, and `_enhance_image_url` attaches it as an OpenAI-style multimodal part whenever the **picked**
-  model is a **vision** model — provider-agnostic, gated on `ModelDef.vision` alone (both the local
-  `gemma-4-local` and the cloud `gemma-4-31b` qualify) — normalized to a ≤768px PNG via `image_ops`. The
+  model is a **vision** model — provider-agnostic, gated on `ModelDef.vision` alone (the local
+  `qwen3-vl-local` and the cloud VLMs all qualify) — normalized to a ≤768px PNG via `image_ops`. The
   cloud route forwards those parts as-is; the local route is served by `ollama_client.py:_to_ollama_messages`,
   which converts them into Ollama's native per-message `images` array, so local vision enhance works too.
   The frontend drops the result into the prompt box with a one-step ↶ undo. (Distinct from the
@@ -57,7 +57,7 @@ FastAPI backend (:8000)
   FigGen pipeline on **OpenRouter** (`engines/figure_pipeline.py`) — structured FigureSpec → editable
   SVG/PPTX. Provider is unified on `OPENROUTER_API_KEY`; with no key it falls back to a mock provider.
 - **Region Redraw**: frontend exports a white-on-black mask at exact source dims → `POST /uploads`
-  (source + mask) → `POST /jobs {mode:inpaint}` → `build_inpaint_sdxl` (LUSTIFY 9-ch inpaint).
+  (source + mask) → `POST /jobs {mode:inpaint}` → `build_inpaint_sdxl` (Juggernaut XL + `SetLatentNoiseMask`).
 - **Toolbar one-shots**: `POST /assets/{id}/upscale|whitebg|removebg` (upscale via a tiny ComfyUI
   graph polled on `/history`; bg-removal via rembg on CPU).
 - **Asset serving** (`routers/assets.py`): `GET /assets/{id}/file` and `…/export` stream the file
@@ -77,7 +77,7 @@ FastAPI backend (:8000)
 
 ## Why these choices
 - **ComfyUI** as the single engine: one backend covers txt2img/img2img/inpaint/edit/controlnet/reference/
-  upscale; programmatic `/prompt`+`/ws`; GGUF support (FP8 is broken on Metal).
+  upscale on a single SDXL checkpoint; programmatic `/prompt`+`/ws` (safetensors/fp16 — FP8 is broken on Metal).
 - **Programmatic graph builder** (not JSON+placeholder): type-safe LoRA chains, ref-image fan-out,
   and per-mode branching; validated against live `/object_info` at startup.
 - **SSE** (not WebSocket): generation progress is one-way server→client.
