@@ -3,16 +3,24 @@
 Graphs are constructed programmatically (not JSON+placeholder) so LoRA chains, reference
 images, and mode branching stay type-safe and easy to correct against a live /object_info.
 
-Node `class_type`s used:
-  Core:    CheckpointLoaderSimple, CLIPTextEncode, EmptyLatentImage, EmptySD3LatentImage,
-           KSampler, VAEDecode, VAEEncode, VAEEncodeForInpaint, ImageToMask, LoadImage,
-           SaveImage, LoraLoader, VAELoader, ControlNetLoader, ControlNetApplyAdvanced,
-           ImageUpscaleWithModel, UpscaleModelLoader
-  GGUF (ComfyUI-GGUF):  UnetLoaderGGUF, CLIPLoaderGGUF, TextEncodeQwenImageEdit
+The local lineup is a single SDXL checkpoint (juggernaut-xl). Every mode builds on the verified
+SDXL path:
+  txt2img/img2img → checkpoint + KSampler
+  inpaint         → VAEEncodeForInpaint + SetLatentNoiseMask (standard 4-ch checkpoint)
+  edit            → mask present → inpaint; else high-denoise img2img
+  reference       → IP-Adapter Plus (single image) patches the model
+  controlnet      → ControlNet adapter on the same checkpoint
 
-GGUF/Metal note: only GGUF/bf16/fp16 weights are referenced — never fp8 (corrupts on MPS).
-Node names for the Qwen GGUF paths are best-effort and validated at startup against
-/object_info (see templates.validate_required_nodes); correct here if a name drifts.
+Node `class_type`s used:
+  Core:    CheckpointLoaderSimple, CLIPTextEncode, EmptyLatentImage, KSampler, VAEDecode,
+           VAEEncode, VAEEncodeForInpaint, SetLatentNoiseMask, ImageToMask, LoadImage,
+           SaveImage, LoraLoader, ControlNetLoader, ControlNetApplyAdvanced,
+           ImageUpscaleWithModel, UpscaleModelLoader
+  IP-Adapter (ComfyUI_IPAdapter_plus):  IPAdapterModelLoader, CLIPVisionLoader, IPAdapterAdvanced
+
+GGUF/Metal note: only safetensors/bf16/fp16 weights are referenced — never fp8 (corrupts on MPS).
+IP-Adapter node names/enums are best-effort and validated at startup against /object_info
+(see templates.validate_required_nodes); correct here if a name drifts.
 """
 from __future__ import annotations
 
@@ -22,11 +30,11 @@ from typing import Optional
 
 from app.models_catalog.registry import (
     CONTROLNET_FILES,
-    PONY_SCORE_PREFIX,
+    IPADAPTER_FILES,
     UPSCALE_MODEL,
     ModelDef,
 )
-from app.schemas.genspec import LOCAL_QWEN_EDIT_MAX_REFS, GenSpec, Mode
+from app.schemas.genspec import GenSpec, Mode
 
 
 @dataclass
@@ -99,35 +107,14 @@ def _ksampler(g: _G, *, model, positive, negative, latent, spec: GenSpec, d: dic
     })
 
 
-# ── SDXL family (verified, rock-solid path) ─────────────────────────────────────
+# ── SDXL base (the single local checkpoint path) ────────────────────────────────
 def _sdxl_base(g: _G, m: ModelDef, spec: GenSpec):
     ck = g.add("CheckpointLoaderSimple", {"ckpt_name": m.files["checkpoint"]})
     model_link, clip_link, vae_link = [ck, 0], [ck, 1], [ck, 2]
     model_link, clip_link = _apply_loras(g, model_link, clip_link, m, spec)
-    pos_text = (PONY_SCORE_PREFIX + spec.prompt) if m.id == "pony-v6" else spec.prompt
-    pos = g.add("CLIPTextEncode", {"text": pos_text, "clip": clip_link})
+    pos = g.add("CLIPTextEncode", {"text": spec.prompt, "clip": clip_link})
     neg = g.add("CLIPTextEncode", {"text": spec.negative_prompt, "clip": clip_link})
     return model_link, vae_link, [pos, 0], [neg, 0]
-
-
-# ── Qwen-Image family (GGUF + Qwen text/vision encoder) ─────────────────────────
-def _qwen_base(g: _G, m: ModelDef, spec: GenSpec):
-    """Qwen-Image loaders (UNET GGUF + Qwen2.5-VL CLIP + Qwen VAE), LoRA-chained.
-
-    Returns (model, clip, vae, pos, neg) so txt2img/img2img can share it.
-    """
-    unet = g.add("UnetLoaderGGUF", {"unet_name": m.files["unet"]})
-    model_link = [unet, 0]
-    clip = g.add("CLIPLoaderGGUF", {
-        "clip_name": m.files.get("clip", "qwen_2.5_vl_7b.safetensors"), "type": "qwen_image",
-    })
-    clip_link = [clip, 0]
-    vae = g.add("VAELoader", {"vae_name": m.files.get("vae", "qwen_image_vae.safetensors")})
-    vae_link = [vae, 0]
-    model_link, clip_link = _apply_loras(g, model_link, clip_link, m, spec)
-    pos = g.add("CLIPTextEncode", {"text": spec.prompt, "clip": clip_link})
-    neg = g.add("CLIPTextEncode", {"text": "", "clip": clip_link})
-    return model_link, clip_link, vae_link, [pos, 0], [neg, 0]
 
 
 # ── builders per mode ───────────────────────────────────────────────────────────
@@ -142,26 +129,11 @@ def build_txt2img_sdxl(spec: GenSpec, ctx: BuildContext) -> BuildResult:
     return BuildResult(g.nodes, save, "imggen")
 
 
-def build_txt2img_qwen(spec: GenSpec, ctx: BuildContext) -> BuildResult:
-    # Qwen-Image 2512 base (+ optional Lightning LoRA via builtin_loras). Latent space is SD3-style.
-    g = _G()
-    m, d = ctx.model, _defaults(spec, ctx.model)
-    model_link, _clip, vae_link, pos, neg = _qwen_base(g, m, spec)
-    latent = g.add("EmptySD3LatentImage", {"width": ctx.width, "height": ctx.height, "batch_size": spec.batch})
-    ks = _ksampler(g, model=model_link, positive=pos, negative=neg, latent=[latent, 0], spec=spec, d=d)
-    dec = g.add("VAEDecode", {"samples": [ks, 0], "vae": vae_link})
-    save = g.add("SaveImage", {"filename_prefix": "imggen", "images": [dec, 0]})
-    return BuildResult(g.nodes, save, "imggen")
-
-
 def build_img2img(spec: GenSpec, ctx: BuildContext) -> BuildResult:
     g = _G()
     m, d = ctx.model, _defaults(spec, ctx.model)
     load = g.add("LoadImage", {"image": ctx.comfy_source})
-    if m.family == "qwen-image":
-        model_link, _clip, vae_link, pos, neg = _qwen_base(g, m, spec)
-    else:
-        model_link, vae_link, pos, neg = _sdxl_base(g, m, spec)
+    model_link, vae_link, pos, neg = _sdxl_base(g, m, spec)
     enc = g.add("VAEEncode", {"pixels": [load, 0], "vae": vae_link})
     ks = _ksampler(g, model=model_link, positive=pos, negative=neg, latent=[enc, 0], spec=spec, d=d,
                    denoise=spec.denoise)
@@ -178,47 +150,54 @@ def build_inpaint_sdxl(spec: GenSpec, ctx: BuildContext) -> BuildResult:
     mask = g.add("LoadImage", {"image": ctx.comfy_mask})  # mask in alpha/red channel
     to_mask = g.add("ImageToMask", {"image": [mask, 0], "channel": "red"})
     enc = g.add("VAEEncodeForInpaint", {"pixels": [img, 0], "vae": vae_link, "mask": [to_mask, 0], "grow_mask_by": 6})
-    ks = _ksampler(g, model=model_link, positive=pos, negative=neg, latent=[enc, 0], spec=spec, d=d,
-                   denoise=max(spec.denoise, 0.85))
+    # Juggernaut XL is a standard 4-ch SDXL checkpoint (not a 9-ch inpaint UNet), so re-assert the
+    # mask on the latent — KSampler then only denoises the masked region.
+    masked = g.add("SetLatentNoiseMask", {"samples": [enc, 0], "mask": [to_mask, 0]})
+    ks = _ksampler(g, model=model_link, positive=pos, negative=neg, latent=[masked, 0], spec=spec, d=d,
+                   denoise=max(spec.denoise, 0.9))
     dec = g.add("VAEDecode", {"samples": [ks, 0], "vae": vae_link})
     save = g.add("SaveImage", {"filename_prefix": "imggen", "images": [dec, 0]})
     return BuildResult(g.nodes, save, "imggen")
 
 
-def build_edit_qwen(spec: GenSpec, ctx: BuildContext) -> BuildResult:
-    # Qwen-Image-Edit 2511 (+ Lightning LoRA via builtin_loras). Uses a Qwen text/vision encoder.
+def build_edit_juggernaut(spec: GenSpec, ctx: BuildContext) -> BuildResult:
+    """Edit mode on a standard SDXL checkpoint: if the planner supplied a mask, treat the edit
+    instruction as an inpaint prompt over the masked region; otherwise run high-denoise img2img on
+    the source image. The LLM/GENSPEC planner decides whether a mask is present — we do NOT generate
+    masks here."""
+    if ctx.comfy_mask:
+        return build_inpaint_sdxl(spec, ctx)
+    # No mask → whole-image instruction edit via high-denoise img2img. Floor the denoise so a low
+    # img2img default still yields a visible edit.
+    edited = spec.model_copy(update={"denoise": max(spec.denoise, 0.75)})
+    return build_img2img(edited, ctx)
+
+
+def build_reference_ipadapter(spec: GenSpec, ctx: BuildContext) -> BuildResult:
+    """Reference-to-image via IP-Adapter Plus (single reference) on the SDXL checkpoint.
+
+    IPAdapterModelLoader + CLIPVisionLoader feed IPAdapterAdvanced, which patches the MODEL with the
+    reference's style/subject; the patched model then drives a normal txt2img KSampler.
+    """
     g = _G()
     m, d = ctx.model, _defaults(spec, ctx.model)
-    unet = g.add("UnetLoaderGGUF", {"unet_name": m.files["unet"]})
-    model_link = [unet, 0]
-    # Qwen edit uses its own CLIP loader; fall back generic name validated at startup.
-    clip = g.add("CLIPLoaderGGUF", {"clip_name": m.files.get("clip", "qwen_2.5_vl_7b.safetensors"), "type": "qwen_image"})
-    clip_link = [clip, 0]
-    vae = g.add("VAELoader", {"vae_name": m.files.get("vae", "qwen_image_vae.safetensors")})
-    vae_link = [vae, 0]
-    model_link, clip_link = _apply_loras(g, model_link, clip_link, m, spec)
-    # Effective reference images: source (if any) first, then the uploaded refs. The multi-image
-    # node TextEncodeQwenImageEditPlus exposes image1..image3, but LOCAL_QWEN_EDIT_MAX_REFS clamps
-    # below that to fit the 24GB MPS attention ceiling (see docs/WORKFLOWS.md). LoadImage has a
-    # single IMAGE output, so N images need N LoadImage nodes.
-    imgs = ([ctx.comfy_source] if ctx.comfy_source else []) + list(ctx.comfy_refs)
-    imgs = imgs[:LOCAL_QWEN_EDIT_MAX_REFS] or [""]   # keep the empty-input fallback for no images
-    loads = [g.add("LoadImage", {"image": ref}) for ref in imgs]
-    if len(loads) <= 1:
-        # Single reference → single-input node (name validated at startup); empty negative.
-        src = loads[0]
-        pos = g.add("TextEncodeQwenImageEdit", {"clip": clip_link, "prompt": spec.prompt, "image": [src, 0], "vae": vae_link})
-        neg = g.add("TextEncodeQwenImageEdit", {"clip": clip_link, "prompt": "", "image": [src, 0], "vae": vae_link})
-    else:
-        # Multiple references → wire each LoadImage into image1/image2/image3. The negative
-        # reuses the same LoadImage nodes (no duplication); vae yields reference_latents.
-        img_inputs = {f"image{i + 1}": [ld, 0] for i, ld in enumerate(loads)}
-        pos = g.add("TextEncodeQwenImageEditPlus", {"clip": clip_link, "prompt": spec.prompt, "vae": vae_link, **img_inputs})
-        neg = g.add("TextEncodeQwenImageEditPlus", {"clip": clip_link, "prompt": "", "vae": vae_link, **img_inputs})
-    # Seed latent from the primary image (sets output dimensions; denoise=1.0 fully renoises).
-    enc = g.add("VAEEncode", {"pixels": [loads[0], 0], "vae": vae_link})
-    ks = _ksampler(g, model=model_link, positive=[pos, 0], negative=[neg, 0], latent=[enc, 0],
-                   spec=spec, d=d, denoise=1.0)
+    model_link, vae_link, pos, neg = _sdxl_base(g, m, spec)
+    # Single reference image; fall back to the source if no explicit reference was uploaded.
+    ref_name = ctx.comfy_refs[0] if ctx.comfy_refs else ctx.comfy_source
+    ref = g.add("LoadImage", {"image": ref_name})
+    ipa = g.add("IPAdapterModelLoader", {"ipadapter_file": IPADAPTER_FILES["ipadapter"]})
+    vis = g.add("CLIPVisionLoader", {"clip_name": IPADAPTER_FILES["clip_vision"]})
+    # Strength from the first reference (clamped to the guide's 0.6–0.8 window), default 0.7.
+    strength = spec.reference_images[0].strength if spec.reference_images else 0.7
+    strength = min(max(strength, 0.6), 0.8)
+    apply = g.add("IPAdapterAdvanced", {
+        "model": model_link, "ipadapter": [ipa, 0], "clip_vision": [vis, 0],
+        "image": [ref, 0], "weight": strength, "weight_type": "linear",
+        "combine_embeds": "concat", "start_at": 0.0, "end_at": 1.0, "embeds_scaling": "V only",
+    })
+    model_link = [apply, 0]   # IPAdapterAdvanced returns the patched MODEL
+    latent = g.add("EmptyLatentImage", {"width": ctx.width, "height": ctx.height, "batch_size": spec.batch})
+    ks = _ksampler(g, model=model_link, positive=pos, negative=neg, latent=[latent, 0], spec=spec, d=d)
     dec = g.add("VAEDecode", {"samples": [ks, 0], "vae": vae_link})
     save = g.add("SaveImage", {"filename_prefix": "imggen", "images": [dec, 0]})
     return BuildResult(g.nodes, save, "imggen")
@@ -261,22 +240,24 @@ def build_upscale(comfy_source: str) -> BuildResult:
 
 
 _TEMPLATE_DISPATCH = {
-    "txt2img_qwen": build_txt2img_qwen,
     "txt2img_sdxl_lora": build_txt2img_sdxl,
     "inpaint_sdxl": build_inpaint_sdxl,
-    "edit_qwen_lightning": build_edit_qwen,
 }
 
 
 def build(spec: GenSpec, ctx: BuildContext) -> BuildResult:
-    """Dispatch to the right builder by mode + model template."""
+    """Dispatch to the right builder by mode (all local modes are SDXL now)."""
     if spec.mode == Mode.controlnet:
         return build_controlnet_sdxl(spec, ctx)
+    if spec.mode == Mode.reference:
+        return build_reference_ipadapter(spec, ctx)   # IP-Adapter Plus, single reference
+    if spec.mode == Mode.edit:
+        return build_edit_juggernaut(spec, ctx)        # mask→inpaint, else high-denoise img2img
+    if spec.mode == Mode.inpaint:
+        return build_inpaint_sdxl(spec, ctx)
     if spec.mode == Mode.img2img:
         return build_img2img(spec, ctx)
-    if spec.mode == Mode.reference:
-        # Reference is handled by Qwen-Image-Edit (uses the first reference image).
-        return build_edit_qwen(spec, ctx)
+    # txt2img
     template = ctx.model.template or "txt2img_sdxl_lora"
     fn = _TEMPLATE_DISPATCH.get(template, build_txt2img_sdxl)
     return fn(spec, ctx)

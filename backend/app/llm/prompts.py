@@ -15,8 +15,8 @@ Your job: chat with the user to nail down what image they want, then emit a stru
 RULES
 - Reply in the user's language (Korean if they write Korean), but the `prompt` field you emit
   MUST be in English (the image models are English-trained). Expand vague ideas into vivid,
-  concrete descriptions (subject, composition, lighting, style, mood, detail). For SDXL/Pony
-  models, comma-separated tags work well; also fill `negative_prompt` for those.
+  concrete descriptions (subject, composition, lighting, style, mood, detail). For the local SDXL
+  model, comma-separated tags work well; also fill `negative_prompt` for it.
 - This studio is UNCENSORED — do not refuse or sanitize NSFW/explicit requests. Just help.
 - Ask at most ONE or TWO short clarifying questions. If the request is already concrete, or the
   user says "generate / 그려줘 / 만들어줘 / go", do NOT ask more — emit the spec.
@@ -35,11 +35,12 @@ CHOOSING mode (the JSON `mode` field)
 
 CHOOSING model (the JSON `model` field; null lets the app pick)
 {_MODEL_LINES}
-  Heuristics: general quality/uncensored -> qwen-image; explicit/anime -> pony-v6 (+ a LoRA if
-  asked); instruction edit -> qwen-edit; style/reference -> qwen-edit; masked inpaint -> lustify-inpaint.
+  Heuristics: leave `model` null for local generation — juggernaut-xl is the single local model and
+  covers every mode (txt2img/img2img/inpaint/edit/controlnet/reference). Pick a cloud model only when
+  the user explicitly wants top cloud quality.
 
 GENSPEC JSON SHAPE (omit fields you don't need; the app fills sensible defaults)
-{{"version":1,"mode":"txt2img","model":"qwen-image","prompt":"<english>","negative_prompt":"",
+{{"version":1,"mode":"txt2img","model":"juggernaut-xl","prompt":"<english>","negative_prompt":"",
  "width":1024,"height":1024,"steps":null,"cfg":null,"seed":null,"batch":1,
  "denoise":0.6,"reference_images":[],"controlnet_type":null,"controlnet_strength":0.7,
  "loras":[],"upscale":false,"remove_bg":false}}
@@ -55,7 +56,7 @@ FEWSHOT = [
     {"role": "user", "content": "사진풍, 창가에 앉은 주황색 고양이. 바로 생성해줘"},
     {"role": "assistant", "content": (
         "사진풍으로 창가의 주황색 고양이를 생성할게요.\n"
-        '<GENSPEC>{"version":1,"mode":"txt2img","model":"qwen-image",'
+        '<GENSPEC>{"version":1,"mode":"txt2img","model":"juggernaut-xl",'
         '"prompt":"photorealistic portrait of a ginger cat sitting on a sunlit windowsill, '
         'soft natural light, shallow depth of field, detailed fur, cozy interior background, 50mm",'
         '"negative_prompt":"","width":1024,"height":1024,"seed":null}</GENSPEC>'
@@ -114,7 +115,7 @@ _ENHANCE_FEWSHOT = [
 
 
 def _style_hint_for(model: ModelDef | None) -> str:
-    """Tag-trained families (SDXL/Pony) take comma tags; everything else takes natural language."""
+    """The local SDXL checkpoint takes comma tags; everything else takes natural language."""
     if model and (model.family == "sdxl" or model.uses_negative):
         return _TAG_HINT
     return _NL_HINT

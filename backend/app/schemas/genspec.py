@@ -11,9 +11,9 @@ class Mode(str, Enum):
     txt2img = "txt2img"
     img2img = "img2img"
     inpaint = "inpaint"
-    edit = "edit"          # instruction / reference edit (Qwen-Image-Edit)
+    edit = "edit"          # instruction edit (mask→inpaint, else high-denoise img2img)
     controlnet = "controlnet"
-    reference = "reference"  # style/look reference (Qwen-Image-Edit)
+    reference = "reference"  # style/look reference (IP-Adapter Plus, single image)
 
 
 RefRole = Literal["style", "structure", "edit", "identity"]
@@ -22,20 +22,17 @@ ControlType = Literal["canny", "depth", "scribble", "lineart"]
 # Max reference images per request. Mirror in frontend/lib/constants.ts — keep in sync.
 MAX_REFERENCE_IMAGES = 6
 
-# Local qwen-edit multi-reference cap: the ComfyUI node TextEncodeQwenImageEditPlus exposes
-# image1..image3, but on a 24GB Apple-Silicon box 3 references blow the MPS attention buffer
-# past its single-allocation ceiling ("Invalid buffer size: ~16.5 GiB" mid-sampling — each ref
-# concatenates ~4k conditioning tokens and the score matrix grows with the square of the total).
-# Two references + the clamped working size below stay comfortably under that ceiling. The builder
-# clamps to this; the global cap above stays the outer bound (a hand-crafted 6-ref local request
-# degrades to the first 2 rather than erroring). Mirror in frontend/lib/constants.ts.
-LOCAL_QWEN_EDIT_MAX_REFS = 2
+# Local reference cap: the local lineup uses IP-Adapter Plus, which conditions on a SINGLE
+# reference image (the encoder takes one image input). Extra refs in a hand-crafted request are
+# ignored (the builder uses the first). The global cap above stays the outer bound for cloud
+# models. Mirror in frontend/lib/constants.ts (LOCAL_MAX_REFERENCE_IMAGES).
+LOCAL_MAX_REFS = 1
 
-# Local qwen-edit (edit/reference) working-size cap, longest side in px. The output latent is
-# VAE-encoded from the primary image (builder.build_edit_qwen), so the *input* image size sets the
-# generated resolution. Source + reference uploads are downscaled to this before they reach ComfyUI
-# (see orchestrator.queue._prepare_inputs) to keep the attention buffer within the 24GB MPS ceiling.
-LOCAL_QWEN_EDIT_MAX_SIDE = 1024
+# Local (edit/reference) working-size cap, longest side in px. SDXL is 1024-native and the
+# IP-Adapter CLIP-Vision encoder resizes internally, so this is mainly an MPS memory guard: source
+# + reference uploads are downscaled to this before they reach ComfyUI (see
+# orchestrator.queue._prepare_inputs) to keep generation within the 24GB ceiling.
+LOCAL_MAX_SIDE = 1024
 
 
 class ReferenceImage(BaseModel):
@@ -53,11 +50,11 @@ class GenSpec(BaseModel):
     """One generation/edit request. `model` may be null → backend picks by mode + free RAM."""
     version: int = 1
     mode: Mode = Mode.txt2img
-    model: Optional[str] = None      # image registry id, e.g. "qwen-image" / "seedream-4.5"
-    llm_model: Optional[str] = None  # chat/planner LLM id (figure engine), e.g. "minimax-m3"
+    model: Optional[str] = None      # image registry id, e.g. "juggernaut-xl" / "gpt-image-2"
+    llm_model: Optional[str] = None  # chat/planner LLM id, e.g. "qwen3-vl-local" / "gemini-2.5-flash"
 
     prompt: str = ""
-    negative_prompt: str = ""        # used by SDXL/Pony; ignored by Qwen-Image
+    negative_prompt: str = ""        # used by the local SDXL checkpoint; ignored by cloud models
 
     width: int = 1024
     height: int = 1024

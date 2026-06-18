@@ -12,9 +12,8 @@ REQUIRED_NODES: dict[str, list[str]] = {
         "CheckpointLoaderSimple", "CLIPTextEncode", "EmptyLatentImage",
         "KSampler", "VAEDecode", "VAEEncode", "SaveImage", "LoadImage", "LoraLoader",
     ],
-    "qwen gguf": ["UnetLoaderGGUF", "VAELoader", "EmptySD3LatentImage"],
-    "qwen (image/edit)": ["CLIPLoaderGGUF", "TextEncodeQwenImageEdit", "TextEncodeQwenImageEditPlus"],
-    "inpaint": ["VAEEncodeForInpaint", "ImageToMask"],
+    "inpaint": ["VAEEncodeForInpaint", "ImageToMask", "SetLatentNoiseMask"],
+    "reference (ip-adapter)": ["IPAdapterModelLoader", "CLIPVisionLoader", "IPAdapterAdvanced"],
     "controlnet": ["ControlNetLoader", "ControlNetApplyAdvanced"],
     "upscale": ["UpscaleModelLoader", "ImageUpscaleWithModel"],
 }

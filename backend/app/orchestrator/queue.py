@@ -16,7 +16,7 @@ from app.engines.figure_pipeline import StagedInput, run_figure_job
 from app.llm.ollama_client import OllamaClient
 from app.models_catalog.registry import is_cloud, resolve, resolve_llm
 from app.orchestrator.memory import MemoryOrchestrator
-from app.schemas.genspec import LOCAL_QWEN_EDIT_MAX_SIDE, GenSpec, Mode
+from app.schemas.genspec import LOCAL_MAX_SIDE, GenSpec, Mode
 from app.schemas.jobs import ProgressEvent
 from app.services import image_ops, rembg_service, storage
 
@@ -183,10 +183,9 @@ class JobWorker:
         height = image_ops.round_to_multiple(spec.height, 16)
         ctx = B.BuildContext(model=model, width=width, height=height)
 
-        # qwen-edit (edit/reference) derives the output latent from the primary image and
-        # concatenates every reference as conditioning, so input size × ref count drives the MPS
-        # attention buffer. Downscale uploads to the 24GB working-size cap to stay under the ceiling.
-        clamp_side = LOCAL_QWEN_EDIT_MAX_SIDE if spec.mode in (Mode.edit, Mode.reference) else None
+        # Local edit/reference run on SDXL (img2img/inpaint) or the IP-Adapter CLIP-Vision encoder;
+        # downscale uploads to the working-size cap as an MPS memory guard (SDXL is 1024-native).
+        clamp_side = LOCAL_MAX_SIDE if (not is_cloud(model) and spec.mode in (Mode.edit, Mode.reference)) else None
 
         source_img = None
         if spec.source_asset:
