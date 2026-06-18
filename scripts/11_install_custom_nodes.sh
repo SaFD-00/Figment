@@ -28,8 +28,8 @@ clone() {  # clone <url> <dir>
   fi
 }
 
-# GGUF unet/clip loaders — required by the Qwen GGUF templates (incl. the abliterated TE)
-clone https://github.com/city96/ComfyUI-GGUF                       ComfyUI-GGUF
+# IP-Adapter Plus — single-image reference (IPAdapterModelLoader/CLIPVisionLoader/IPAdapterAdvanced)
+clone https://github.com/cubiq/ComfyUI_IPAdapter_plus              ComfyUI_IPAdapter_plus
 # ControlNet preprocessors (we use only canny/depth/scribble/lineart — torch-only)
 clone https://github.com/Fannovel16/comfyui_controlnet_aux         comfyui_controlnet_aux
 

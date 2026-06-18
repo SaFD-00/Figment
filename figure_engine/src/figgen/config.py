@@ -70,7 +70,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("FIGGEN_CHART_CODER_MODEL", "chart_coder_model"),
     )
     image_model: str = Field(
-        default="bytedance-seed/seedream-4.5",
+        default="openai/gpt-5.4-image-2",   # VERIFY slug
         validation_alias=AliasChoices("FIGGEN_DEFAULT_IMAGER", "image_model"),
     )
 

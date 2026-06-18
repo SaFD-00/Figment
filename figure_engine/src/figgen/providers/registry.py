@@ -1,6 +1,6 @@
 """역할(planner/critic/classifier/chart_coder/editor/research)→클라이언트 라우팅.
 
-실 provider는 **OpenRouter 단일**(LLM=qwen/qwen3.7-plus 등, 이미지=bytedance-seed/seedream-4.5).
+실 provider는 **OpenRouter 단일**(LLM=qwen/qwen3.7-plus 등, 이미지=openai/gpt-5.4-image-2 등).
 provider='auto'/키 없음/명시 mock이면 mock으로 안전 폴백(오프라인 구동).
 """
 

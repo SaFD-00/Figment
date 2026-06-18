@@ -15,7 +15,7 @@ esac
 
 echo "Bootstrapping $AISTUDIO_HOME ..."
 mkdir -p "$AISTUDIO_HOME"/{comfyui,outputs,logs}
-mkdir -p "$AISTUDIO_HOME"/models/{checkpoints,unet,clip,clip_vision,vae,loras,controlnet,upscale_models,style_models,pulid}
+mkdir -p "$AISTUDIO_HOME"/models/{checkpoints,unet,clip,clip_vision,vae,loras,controlnet,ipadapter,upscale_models,style_models,pulid}
 
 # extra_model_paths.yaml so ComfyUI reads weights from ~/AIStudio/models (single source of truth)
 cat > "$AISTUDIO_HOME/extra_model_paths.yaml" <<YAML
@@ -28,6 +28,7 @@ imggen:
   vae: vae
   loras: loras
   controlnet: controlnet
+  ipadapter: ipadapter
   upscale_models: upscale_models
   style_models: style_models
   pulid: pulid

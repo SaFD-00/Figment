@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     ollama_url: str = "http://127.0.0.1:11434"
     backend_port: int = 8000
 
-    ollama_llm: str = "huihui_ai/gemma-4-abliterated:e4b"
+    ollama_llm: str = "huihui_ai/qwen3-vl-abliterated:8b"
 
     # Memory budget for the 24GB M4 Pro (usable unified memory for ML after OS overhead)
     vram_budget_gb: float = 19.0

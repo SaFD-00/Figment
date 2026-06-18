@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Download GGUF/safetensors model weights into <repo>/AIStudio/models, in milestone order,
-# each step guarded by the disk budget. Run a stage:  ./20_download_models.sh [qwen|sdxl|edit|ref|all]
+# Download safetensors model weights into <repo>/AIStudio/models, each step guarded by the disk
+# budget. Run a stage:  ./20_download_models.sh [sdxl|ref|all]
 #
-# Repo IDs + exact file paths below were verified against the HF API on 2026-06-16. `dl` takes an
-# EXACT repo file path (not a glob) and renames/flattens it to the name registry.py expects.
+# The local lineup is a single SDXL checkpoint (Juggernaut XL) that serves every mode, plus
+# IP-Adapter Plus (reference), SDXL ControlNet (structure) and Real-ESRGAN (upscale). Repo IDs +
+# file paths marked VERIFY are best-guess preview names — confirm on HF before a fresh run. `dl`
+# takes an EXACT repo file path (not a glob) and renames/flattens it to the name registry.py expects.
 # All downloads use `hf download` (huggingface_hub CLI). FP8 files are intentionally never fetched (Metal-incompatible).
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,7 +27,7 @@ fi
 
 AISTUDIO_HOME="${AISTUDIO_HOME:-$HERE/../AIStudio}"
 M="$AISTUDIO_HOME/models"
-STAGE="${1:-qwen}"
+STAGE="${1:-sdxl}"
 
 # Resolve an `hf` CLI binary (prefer PATH, then uv-tool, then the ComfyUI venv).
 HF_BIN=""
@@ -60,50 +62,24 @@ dl() {  # dl <repo_id> <src_file_path> <dest-subdir> <dest-filename> <approx_gb>
   rm -rf "$tmp"
 }
 
-stage_qwen() {   # Qwen-Image 2512 (txt2img/img2img) — uncensored stack: DiT GGUF + abliterated
-                 # Qwen2.5-VL text encoder (+mmproj) + Qwen VAE + Lightning + NSFW LoRA  (~21GB)
-  dl unsloth/Qwen-Image-2512-GGUF  "qwen-image-2512-Q4_K_M.gguf"  unet  Qwen-Image-2512-Q4_K_M.gguf  13
-  # Abliterated Qwen2.5-VL text encoder lifts the refusal bias; mmproj is its vision projector.
-  # Renamed (repo uses a dot before the quant; registry files["clip"] uses a dash).
-  dl mradermacher/Qwen2.5-VL-7B-Instruct-abliterated-GGUF \
-     "Qwen2.5-VL-7B-Instruct-abliterated.Q4_K_M.gguf"  clip  Qwen2.5-VL-7B-Instruct-abliterated-Q4_K_M.gguf  5
-  dl mradermacher/Qwen2.5-VL-7B-Instruct-abliterated-GGUF \
-     "Qwen2.5-VL-7B-Instruct-abliterated.mmproj-Q8_0.gguf"  clip  Qwen2.5-VL-7B-Instruct-abliterated.mmproj-Q8_0.gguf  1
-  # Qwen VAE — shared with qwen-edit (flattened out of split_files/vae/).
-  dl Comfy-Org/Qwen-Image_ComfyUI  "split_files/vae/qwen_image_vae.safetensors"  vae  qwen_image_vae.safetensors  1
-  # 8-step distill LoRA (renamed to the registry's builtin_loras name).
-  dl lightx2v/Qwen-Image-Lightning "Qwen-Image-Lightning-8steps-V2.0.safetensors"  loras  Qwen-Image-Lightning-8steps.safetensors  1
-  dl goonsai/qwen-image-loras      "qwen_MCNL_v1.0.safetensors"  loras  qwen_MCNL_v1.0.safetensors  1   # NSFW LoRA
-}
-
-stage_sdxl() {   # Pony V6 (explicit NSFW) + LUSTIFY SDXL NSFW inpaint (genuine 9-ch UNet, fp16)  (~14GB)
-  dl AiAF/ponyDiffusionV6XL_v6StartWithThisOne.safetensors \
-     "ponyDiffusionV6XL_v6StartWithThisOne.safetensors"  checkpoints  ponyDiffusionV6XL_v6StartWithThisOne.safetensors  7
-  dl andro-flock/LUSTIFY-SDXL-NSFW-checkpoint-v2-0-INPAINTING \
-     "lustifySDXLNSFW_v20-inpainting.safetensors"  checkpoints  lustifySDXLNSFW_v20-inpainting.safetensors  7
+stage_sdxl() {   # Juggernaut XL (single uncensored SDXL checkpoint, NSFW build) + SDXL VAE  (~8GB)
+  # The destination filename MUST match registry MODELS["juggernaut-xl"].files["checkpoint"].
+  dl RunDiffusion/Juggernaut-XL-v9 \
+     "Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors"  checkpoints  juggernautXL_v9.safetensors  7   # VERIFY repo/src
   dl madebyollin/sdxl-vae-fp16-fix  "sdxl_vae.safetensors"  vae  sdxl_vae.safetensors  1
+  # Optional NSFW LoRA (CivitAI, strength ~0.8) — uncomment + match registry builtin_loras name.
+  # dl <repo> "<src>.safetensors"  loras  juggernaut_nsfw.safetensors  1   # VERIFY
 }
 
-stage_edit() {   # Instruction + reference edit: Qwen-Image-Edit 2511 + shared TE/VAE + Lightning + NSFW LoRA
-                 # Self-contained (~21GB) — running `edit` alone yields a fully working qwen-edit model.
-  dl unsloth/Qwen-Image-Edit-2511-GGUF \
-     "qwen-image-edit-2511-Q4_K_M.gguf"  unet  Qwen-Image-Edit-2511-Q4_K_M.gguf  13
-  # Abliterated Qwen2.5-VL text encoder (+mmproj vision projector) + Qwen VAE. Also pulled by
-  # stage_qwen; duplicated here so `edit` is standalone (dl is idempotent — skips if present).
-  dl mradermacher/Qwen2.5-VL-7B-Instruct-abliterated-GGUF \
-     "Qwen2.5-VL-7B-Instruct-abliterated.Q4_K_M.gguf"  clip  Qwen2.5-VL-7B-Instruct-abliterated-Q4_K_M.gguf  5
-  dl mradermacher/Qwen2.5-VL-7B-Instruct-abliterated-GGUF \
-     "Qwen2.5-VL-7B-Instruct-abliterated.mmproj-Q8_0.gguf"  clip  Qwen2.5-VL-7B-Instruct-abliterated.mmproj-Q8_0.gguf  1
-  dl Comfy-Org/Qwen-Image_ComfyUI  "split_files/vae/qwen_image_vae.safetensors"  vae  qwen_image_vae.safetensors  1
-  # 4-step Lightning (matches qwen-edit default steps=4); bf16 — fp8 corrupts on Metal.
-  dl lightx2v/Qwen-Image-Edit-2511-Lightning \
-     "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors"  loras  Qwen-Image-Edit-2511-Lightning.safetensors  1
-  dl goonsai/qwen-image-loras  "qwen_MCNL_v1.0.safetensors"  loras  qwen_MCNL_v1.0.safetensors  1   # NSFW LoRA
-}
-
-stage_ref() {    # Structure control (SDXL ControlNet canny+depth) + Real-ESRGAN upscaler  (~5GB)
-  # Both repos ship the file as diffusion_pytorch_model.safetensors — rename per-type to avoid a
-  # collision in controlnet/ and to match registry CONTROLNET_FILES.
+stage_ref() {    # Reference (IP-Adapter Plus + CLIP-ViT-H) + ControlNet (canny/depth) + Real-ESRGAN  (~8GB)
+  # IP-Adapter Plus model → models/ipadapter ; CLIP-ViT-H vision model → models/clip_vision.
+  # Filenames MUST match registry IPADAPTER_FILES.
+  dl h94/IP-Adapter \
+     "sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors"  ipadapter  ip-adapter-plus_sdxl_vit-h.safetensors  1   # VERIFY repo path
+  dl h94/IP-Adapter \
+     "models/image_encoder/model.safetensors"  clip_vision  CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors  3   # VERIFY repo path + dest name
+  # Both ControlNet repos ship the file as diffusion_pytorch_model.safetensors — rename per-type to
+  # avoid a collision in controlnet/ and to match registry CONTROLNET_FILES.
   # diskguard does integer arithmetic — keep these whole GB (rounded up).
   dl xinsir/controlnet-canny-sdxl-1.0 \
      "diffusion_pytorch_model.safetensors"  controlnet  controlnet-canny-sdxl-1.0.safetensors  3
@@ -113,11 +89,9 @@ stage_ref() {    # Structure control (SDXL ControlNet canny+depth) + Real-ESRGAN
 }
 
 case "$STAGE" in
-  qwen) stage_qwen ;;
   sdxl) stage_sdxl ;;
-  edit) stage_edit ;;
   ref)  stage_ref ;;
-  all)  stage_qwen; stage_sdxl; stage_edit; stage_ref ;;
-  *) echo "usage: $0 [qwen|sdxl|edit|ref|all]"; exit 1 ;;
+  all)  stage_sdxl; stage_ref ;;
+  *) echo "usage: $0 [sdxl|ref|all]"; exit 1 ;;
 esac
 echo "✓ stage '$STAGE' done. Disk:"; df -g "$HOME" | awk 'NR==2{print $4" GB free"}'
