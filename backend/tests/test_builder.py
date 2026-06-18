@@ -1,9 +1,13 @@
-"""Graph builder produces well-formed ComfyUI graphs for each mode."""
-import pytest
+"""Graph builder produces well-formed ComfyUI graphs for each mode.
 
+The local lineup is a single SDXL checkpoint (juggernaut-xl): txt2img/img2img/inpaint/edit run on
+the checkpoint, reference uses IP-Adapter Plus, controlnet uses a ControlNet adapter.
+"""
 from app.comfy import builder as B
-from app.models_catalog.registry import MODELS, resolve
+from app.models_catalog.registry import MODELS
 from app.schemas.genspec import GenSpec, Mode
+
+LOCAL = "juggernaut-xl"
 
 
 def _ctx(model_id, **kw):
@@ -11,6 +15,10 @@ def _ctx(model_id, **kw):
     return B.BuildContext(model=m, width=kw.get("width", 1024), height=kw.get("height", 1024),
                           comfy_source=kw.get("src"), comfy_mask=kw.get("mask"),
                           comfy_refs=kw.get("refs", []))
+
+
+def _types(res: B.BuildResult):
+    return [n["class_type"] for n in res.graph.values()]
 
 
 def _assert_graph(result: B.BuildResult):
@@ -27,85 +35,75 @@ def _assert_graph(result: B.BuildResult):
 
 
 def test_txt2img_sdxl():
-    spec = GenSpec(mode=Mode.txt2img, model="pony-v6", prompt="a fox")
-    _assert_graph(B.build(spec, _ctx("pony-v6")))
-
-
-def test_txt2img_qwen():
-    spec = GenSpec(mode=Mode.txt2img, model="qwen-image", prompt="a fox")
-    res = B.build(spec, _ctx("qwen-image"))
+    spec = GenSpec(mode=Mode.txt2img, model=LOCAL, prompt="a fox")
+    res = B.build(spec, _ctx(LOCAL))
     _assert_graph(res)
-    assert any(n["class_type"] == "UnetLoaderGGUF" for n in res.graph.values())
-    assert any(n["class_type"] == "CLIPLoaderGGUF" for n in res.graph.values())
+    assert "CheckpointLoaderSimple" in _types(res)
 
 
-def test_inpaint_lustify():
-    spec = GenSpec(mode=Mode.inpaint, model="lustify-inpaint", prompt="brick wall",
+def test_img2img_sdxl():
+    spec = GenSpec(mode=Mode.img2img, model=LOCAL, prompt="a fox", source_asset="s")
+    res = B.build(spec, _ctx(LOCAL, src="imggen/src.png"))
+    _assert_graph(res)
+    assert "VAEEncode" in _types(res)
+
+
+def test_inpaint_sets_latent_noise_mask():
+    # Standard 4-ch SDXL checkpoint → inpaint must re-assert the mask via SetLatentNoiseMask.
+    spec = GenSpec(mode=Mode.inpaint, model=LOCAL, prompt="brick wall",
                    source_asset="s", mask_asset="m")
-    res = B.build(spec, _ctx("lustify-inpaint", src="imggen/src.png", mask="imggen/mask.png"))
+    res = B.build(spec, _ctx(LOCAL, src="imggen/src.png", mask="imggen/mask.png"))
     _assert_graph(res)
-    assert any(n["class_type"] == "VAEEncodeForInpaint" for n in res.graph.values())
+    types = _types(res)
+    assert "VAEEncodeForInpaint" in types
+    assert "SetLatentNoiseMask" in types
 
 
-def test_reference_routes_to_qwen_edit():
-    # Single reference → single-input node (backward compatible).
-    spec = GenSpec(mode=Mode.reference, model="qwen-edit", prompt="in this style")
-    res = B.build(spec, _ctx("qwen-edit", refs=["imggen/ref.png"]))
+def test_edit_with_mask_routes_to_inpaint():
+    spec = GenSpec(mode=Mode.edit, model=LOCAL, prompt="make the sky red",
+                   source_asset="s", mask_asset="m")
+    res = B.build(spec, _ctx(LOCAL, src="imggen/src.png", mask="imggen/mask.png"))
     _assert_graph(res)
-    types = [n["class_type"] for n in res.graph.values()]
-    assert "TextEncodeQwenImageEdit" in types
-    assert "TextEncodeQwenImageEditPlus" not in types
+    assert "SetLatentNoiseMask" in _types(res)
+
+
+def test_edit_without_mask_routes_to_img2img():
+    spec = GenSpec(mode=Mode.edit, model=LOCAL, prompt="brighten it", source_asset="s")
+    res = B.build(spec, _ctx(LOCAL, src="imggen/src.png"))
+    _assert_graph(res)
+    types = _types(res)
+    assert "VAEEncode" in types
+    assert "SetLatentNoiseMask" not in types
+
+
+def test_reference_routes_to_ipadapter():
+    # Reference → IP-Adapter Plus, single reference image.
+    spec = GenSpec(mode=Mode.reference, model=LOCAL, prompt="in this style",
+                   reference_images=[{"asset": "r", "strength": 0.7}])
+    res = B.build(spec, _ctx(LOCAL, refs=["imggen/ref.png"]))
+    _assert_graph(res)
+    types = _types(res)
+    assert "IPAdapterModelLoader" in types
+    assert "IPAdapterAdvanced" in types
+    assert "CLIPVisionLoader" in types
     assert types.count("LoadImage") == 1
 
 
-def test_reference_multi_routes_to_qwen_edit_plus():
-    # Two references → multi-image node, one LoadImage each, wired image1..imageN.
-    spec = GenSpec(mode=Mode.reference, model="qwen-edit", prompt="blend these")
-    res = B.build(spec, _ctx("qwen-edit", refs=["imggen/a.png", "imggen/b.png"]))
-    _assert_graph(res)
-    types = [n["class_type"] for n in res.graph.values()]
-    assert "TextEncodeQwenImageEditPlus" in types
-    assert "TextEncodeQwenImageEdit" not in types
-    assert types.count("LoadImage") == 2
-    pos = next(n for n in res.graph.values()
-               if n["class_type"] == "TextEncodeQwenImageEditPlus" and n["inputs"].get("prompt"))
-    assert {"image1", "image2"} <= set(pos["inputs"].keys())
-
-
-def test_reference_multi_clamps_to_two():
-    # More refs than 24GB allows → clamp to LOCAL_QWEN_EDIT_MAX_REFS (=2), no image3.
-    spec = GenSpec(mode=Mode.reference, model="qwen-edit", prompt="blend")
-    res = B.build(spec, _ctx("qwen-edit", refs=[f"imggen/r{i}.png" for i in range(5)]))
-    _assert_graph(res)
-    types = [n["class_type"] for n in res.graph.values()]
-    assert types.count("LoadImage") == 2
-    pos = next(n for n in res.graph.values()
-               if n["class_type"] == "TextEncodeQwenImageEditPlus" and n["inputs"].get("prompt"))
-    assert "image3" not in pos["inputs"]
-
-
 def test_controlnet_sdxl():
-    spec = GenSpec(mode=Mode.controlnet, model="pony-v6", prompt="city", controlnet_type="canny")
-    res = B.build(spec, _ctx("pony-v6", refs=["imggen/ref.png"]))
+    spec = GenSpec(mode=Mode.controlnet, model=LOCAL, prompt="city", controlnet_type="canny")
+    res = B.build(spec, _ctx(LOCAL, refs=["imggen/ref.png"]))
     _assert_graph(res)
-    assert any(n["class_type"] == "ControlNetApplyAdvanced" for n in res.graph.values())
-
-
-def test_pony_score_prefix_injected():
-    spec = GenSpec(mode=Mode.txt2img, model="pony-v6", prompt="a fox")
-    res = B.build(spec, _ctx("pony-v6"))
-    texts = [n["inputs"].get("text", "") for n in res.graph.values() if n["class_type"] == "CLIPTextEncode"]
-    assert any("score_9" in t for t in texts)
+    assert "ControlNetApplyAdvanced" in _types(res)
 
 
 def test_lora_chain():
-    spec = GenSpec(mode=Mode.txt2img, model="pony-v6", prompt="x",
+    spec = GenSpec(mode=Mode.txt2img, model=LOCAL, prompt="x",
                    loras=[{"name": "a.safetensors", "weight": 0.7}])
-    res = B.build(spec, _ctx("pony-v6"))
-    assert any(n["class_type"] == "LoraLoader" for n in res.graph.values())
+    res = B.build(spec, _ctx(LOCAL))
+    assert "LoraLoader" in _types(res)
 
 
 def test_upscale_graph():
     res = B.build_upscale("imggen/x.png")
     _assert_graph(res)
-    assert any(n["class_type"] == "ImageUpscaleWithModel" for n in res.graph.values())
+    assert "ImageUpscaleWithModel" in _types(res)

@@ -29,7 +29,13 @@ from app.engines import model_ready
 from app.engines.cloud import cloud_key_present
 from app.llm.prompts import build_enhance_messages
 from app.llm.routing import chat_stream
-from app.models_catalog.registry import CONTROLNET_FILES, LLM_MODELS, MODELS, UPSCALE_MODEL
+from app.models_catalog.registry import (
+    CONTROLNET_FILES,
+    IPADAPTER_FILES,
+    LLM_MODELS,
+    MODELS,
+    UPSCALE_MODEL,
+)
 from app.orchestrator import pipeline
 from app.schemas.genspec import GenSpec, Mode, ReferenceImage
 from app.services import export_ops
@@ -95,6 +101,13 @@ def _unmet(needs: list[str], pre: Prereqs) -> Optional[str]:
             ctype = n.split(":", 1)[1]
             if not _models_dir_has("controlnet", CONTROLNET_FILES[ctype]):
                 reasons.append(f"weight file missing: {CONTROLNET_FILES[ctype]}")
+        elif n == "ipadapter":
+            if not _models_dir_has("ipadapter", IPADAPTER_FILES["ipadapter"]):
+                reasons.append(f"weight file missing: {IPADAPTER_FILES['ipadapter']}")
+            elif not _models_dir_has("clip_vision", IPADAPTER_FILES["clip_vision"]):
+                reasons.append(f"weight file missing: {IPADAPTER_FILES['clip_vision']}")
+            elif pre.report.get("missing", {}).get("reference (ip-adapter)"):
+                reasons.append("IP-Adapter nodes not installed")
         elif n == "controlnet-nodes":
             miss = []
             if pre.report.get("missing", {}).get("controlnet"):
@@ -247,60 +260,56 @@ def _build_cases(pid: str, pre: Prereqs, s: Samples) -> list[VerifyCase]:
         return f"{len(pptx) // 1024}KB pptx"
 
     return [
-        # ── LOCAL image (ComfyUI) ──
-        img_local("qwen-image / txt2img", "txt2img", ["comfy", "model:qwen-image"],
-                  lambda: GenSpec(mode=Mode.txt2img, model="qwen-image",
+        # ── LOCAL image (ComfyUI) — single SDXL checkpoint (juggernaut-xl), all modes ──
+        img_local("juggernaut-xl / txt2img", "txt2img", ["comfy", "model:juggernaut-xl"],
+                  lambda: GenSpec(mode=Mode.txt2img, model="juggernaut-xl",
                                   prompt="a photorealistic red fox in a snowy forest, soft light",
                                   width=768, height=768)),
-        img_local("qwen-image / img2img", "img2img", ["comfy", "model:qwen-image", "net"],
-                  lambda: GenSpec(mode=Mode.img2img, model="qwen-image",
+        img_local("juggernaut-xl / img2img", "img2img", ["comfy", "model:juggernaut-xl", "net"],
+                  lambda: GenSpec(mode=Mode.img2img, model="juggernaut-xl",
                                   prompt="the same scene as an oil painting", denoise=0.6,
                                   source_asset=s.source)),
-        img_local("qwen-edit / edit (1 img)", "edit", ["comfy", "model:qwen-edit", "net"],
-                  lambda: GenSpec(mode=Mode.edit, model="qwen-edit",
+        img_local("juggernaut-xl / edit (img2img)", "edit", ["comfy", "model:juggernaut-xl", "net"],
+                  lambda: GenSpec(mode=Mode.edit, model="juggernaut-xl",
                                   prompt="make it look like winter with falling snow",
                                   source_asset=s.source)),
-        img_local("qwen-edit / edit (multi)", "edit", ["comfy", "model:qwen-edit", "net"],
-                  lambda: GenSpec(mode=Mode.edit, model="qwen-edit",
-                                  prompt="blend these references into one cohesive scene",
-                                  source_asset=s.source,
-                                  reference_images=[ReferenceImage(asset=a) for a in (s.ref1, s.ref2) if a])),
-        img_local("qwen-edit / reference", "reference", ["comfy", "model:qwen-edit", "net"],
-                  lambda: GenSpec(mode=Mode.reference, model="qwen-edit",
-                                  prompt="a portrait in the style of these references",
-                                  reference_images=[ReferenceImage(asset=a) for a in (s.ref1, s.ref2) if a])),
-        img_local("pony-v6 / txt2img", "txt2img", ["comfy", "model:pony-v6"],
-                  lambda: GenSpec(mode=Mode.txt2img, model="pony-v6",
-                                  prompt="a majestic dragon over mountains, dramatic lighting",
-                                  negative_prompt="blurry, low quality", width=768, height=768)),
-        img_local("pony-v6 / controlnet", "controlnet",
-                  ["comfy", "model:pony-v6", "cnet:canny", "controlnet-nodes", "net"],
-                  lambda: GenSpec(mode=Mode.controlnet, model="pony-v6",
+        img_local("juggernaut-xl / edit (mask→inpaint)", "edit", ["comfy", "model:juggernaut-xl", "net"],
+                  lambda: GenSpec(mode=Mode.edit, model="juggernaut-xl",
+                                  prompt="replace the masked area with a blooming flower",
+                                  source_asset=s.source, mask_asset=s.mask)),
+        img_local("juggernaut-xl / reference (ip-adapter)", "reference",
+                  ["comfy", "model:juggernaut-xl", "ipadapter", "net"],
+                  lambda: GenSpec(mode=Mode.reference, model="juggernaut-xl",
+                                  prompt="a portrait in the style of this reference",
+                                  reference_images=[ReferenceImage(asset=a) for a in (s.ref1,) if a])),
+        img_local("juggernaut-xl / controlnet", "controlnet",
+                  ["comfy", "model:juggernaut-xl", "cnet:canny", "controlnet-nodes", "net"],
+                  lambda: GenSpec(mode=Mode.controlnet, model="juggernaut-xl",
                                   prompt="a neon cyberpunk street, same composition",
                                   negative_prompt="blurry", controlnet_type="canny",
                                   source_asset=s.source)),
-        img_local("lustify-inpaint / inpaint", "inpaint", ["comfy", "model:lustify-inpaint", "net"],
-                  lambda: GenSpec(mode=Mode.inpaint, model="lustify-inpaint",
+        img_local("juggernaut-xl / inpaint", "inpaint", ["comfy", "model:juggernaut-xl", "net"],
+                  lambda: GenSpec(mode=Mode.inpaint, model="juggernaut-xl",
                                   prompt="a blooming flower", negative_prompt="blurry",
                                   source_asset=s.source, mask_asset=s.mask)),
 
         # ── CLOUD image (OpenRouter → figure pipeline) ──
-        img_cloud("seedream-4.5 / txt2img", "txt2img",
-                  lambda: GenSpec(mode=Mode.txt2img, model="seedream-4.5",
+        img_cloud("gpt-image-2 / txt2img", "txt2img",
+                  lambda: GenSpec(mode=Mode.txt2img, model="gpt-image-2",
                                   prompt="a labeled diagram of the water cycle")),
-        img_cloud("seedream-4.5 / edit", "edit",
-                  lambda: GenSpec(mode=Mode.edit, model="seedream-4.5",
+        img_cloud("gpt-image-2 / edit", "edit",
+                  lambda: GenSpec(mode=Mode.edit, model="gpt-image-2",
                                   prompt="add clean callout labels", source_asset=s.source)),
-        img_cloud("seedream-4.5 / reference", "reference",
-                  lambda: GenSpec(mode=Mode.reference, model="seedream-4.5",
+        img_cloud("gemini-pro-image / reference", "reference",
+                  lambda: GenSpec(mode=Mode.reference, model="gemini-pro-image",
                                   prompt="a figure matching this reference style",
                                   reference_images=[ReferenceImage(asset=a) for a in (s.ref1,) if a])),
 
         # ── LLM (chat + vision enhance) ──
-        llm_chat("gemma-4-local / chat", ["ollama", "model-tag:gemma-4-local"], "gemma-4-local"),
-        llm_enhance("gemma-4-local / enhance", ["ollama", "model-tag:gemma-4-local", "net"], "gemma-4-local"),
-        llm_chat("gemma-4-31b / chat", ["openrouter"], "gemma-4-31b"),
-        llm_enhance("gemma-4-31b / enhance", ["openrouter", "net"], "gemma-4-31b"),
+        llm_chat("qwen3-vl-local / chat", ["ollama", "model-tag:qwen3-vl-local"], "qwen3-vl-local"),
+        llm_enhance("qwen3-vl-local / enhance", ["ollama", "model-tag:qwen3-vl-local", "net"], "qwen3-vl-local"),
+        llm_chat("gemini-2.5-flash / chat", ["openrouter"], "gemini-2.5-flash"),
+        llm_enhance("gemini-2.5-flash / enhance", ["openrouter", "net"], "gemini-2.5-flash"),
 
         # ── POSTOP (mostly always-runnable) ──
         VerifyCase("POSTOP", "upscale (Real-ESRGAN)", ["comfy", "net", "upscale-model"], _upscale),

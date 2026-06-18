@@ -22,19 +22,19 @@ def _patch_key(monkeypatch, present: bool):
 
 def test_local_llm_maps_to_ollama_tag(monkeypatch):
     _patch_key(monkeypatch, True)  # key state irrelevant for local
-    provider, model = _resolve_chat("gemma-4-local")
+    provider, model = _resolve_chat("qwen3-vl-local")
     assert provider == "ollama"
-    assert model == "huihui_ai/gemma-4-abliterated:e4b"
+    assert model == "huihui_ai/qwen3-vl-abliterated:8b"
 
 
 def test_cloud_llm_with_key_routes_to_openrouter(monkeypatch):
     _patch_key(monkeypatch, True)
-    assert _resolve_chat("gemma-4-31b") == ("openrouter", "google/gemma-4-31b-it:free")
+    assert _resolve_chat("gemini-2.5-flash") == ("openrouter", "google/gemini-2.5-flash")
 
 
 def test_cloud_llm_without_key_falls_back_to_default_ollama(monkeypatch):
     _patch_key(monkeypatch, False)
-    assert _resolve_chat("gemma-4-31b") == ("ollama", None)
+    assert _resolve_chat("gemini-2.5-flash") == ("ollama", None)
 
 
 def test_none_uses_default_ollama(monkeypatch):

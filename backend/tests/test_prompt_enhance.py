@@ -28,24 +28,24 @@ def _png_data_url() -> str:
 # ── message builder ──────────────────────────────────────────────────────────
 
 def test_build_enhance_messages_tag_vs_nl():
-    # SDXL/Pony (tag-trained) → comma tag hint
-    assert "comma-separated tags" in _system(build_enhance_messages("a cat", "pony-v6"))
-    # Qwen / cloud / unknown / None → natural-language hint
-    assert "natural language" in _system(build_enhance_messages("a cat", "qwen-image"))
-    assert "natural language" in _system(build_enhance_messages("a cat", "seedream-4.5"))
+    # Local SDXL (tag-trained) → comma tag hint
+    assert "comma-separated tags" in _system(build_enhance_messages("a cat", "juggernaut-xl"))
+    # cloud / unknown / None → natural-language hint
+    assert "natural language" in _system(build_enhance_messages("a cat", "gpt-image-2"))
+    assert "natural language" in _system(build_enhance_messages("a cat", "gemini-pro-image"))
     assert "natural language" in _system(build_enhance_messages("a cat", None))
 
 
 def test_enhance_system_prompt_is_output_only():
     # The enhance prompt (not the chat refiner): instructs output-only, forbids the GENSPEC block.
-    sys = _system(build_enhance_messages("a cat", "qwen-image"))
+    sys = _system(build_enhance_messages("a cat", "juggernaut-xl"))
     assert "Output ONLY the rewritten prompt text" in sys
     assert "GENSPEC JSON SHAPE" not in sys  # the refiner's section header — must NOT appear here
     assert "rewrite" in sys.lower()
 
 
 def test_build_enhance_messages_weaves_instruction():
-    msgs = build_enhance_messages("a cat", "qwen-image", instruction="more cinematic")
+    msgs = build_enhance_messages("a cat", "juggernaut-xl", instruction="more cinematic")
     user = msgs[-1]["content"]
     assert isinstance(user, str)  # no image → plain string content
     assert "How to enhance: more cinematic" in user
@@ -53,7 +53,7 @@ def test_build_enhance_messages_weaves_instruction():
 
 def test_build_enhance_messages_attaches_image_as_multimodal():
     url = "data:image/png;base64,AAAA"
-    msgs = build_enhance_messages("a cat", "qwen-image", image_url=url)
+    msgs = build_enhance_messages("a cat", "juggernaut-xl", image_url=url)
     content = msgs[-1]["content"]
     assert isinstance(content, list)  # OpenAI-style multimodal parts
     assert content[0]["type"] == "text"
@@ -90,11 +90,11 @@ async def test_enhance_returns_joined_prompt(monkeypatch):
         promptmod, "chat_stream",
         _recording_stream(["a photorealistic ", "ginger cat on a ", "sunlit windowsill"], captured),
     )
-    res = await enhance(EnhanceRequest(prompt="고양이", image_model="qwen-image", llm_model="gemma-4-local"))
+    res = await enhance(EnhanceRequest(prompt="고양이", image_model="juggernaut-xl", llm_model="qwen3-vl-local"))
     assert res.prompt == "a photorealistic ginger cat on a sunlit windowsill"
     # routed via the enhance system prompt (not the chat refiner) and forwarded the picker LLM id
     assert "Output ONLY the rewritten prompt text" in _system(captured["messages"])
-    assert captured["llm_model"] == "gemma-4-local"
+    assert captured["llm_model"] == "qwen3-vl-local"
 
 
 async def test_enhance_cleans_stream(monkeypatch):
@@ -125,16 +125,16 @@ async def test_enhance_empty_result_raises_502(monkeypatch):
 async def test_enhance_attaches_image_for_vision_cloud_llm(monkeypatch):
     captured: dict = {}
     monkeypatch.setattr(promptmod, "chat_stream", _recording_stream(["x"], captured))
-    # gemma-4-31b is a cloud vision model → image is normalized and attached
-    await enhance(EnhanceRequest(prompt="cat", llm_model="gemma-4-31b", image=_png_data_url()))
+    # gemini-2.5-flash is a cloud vision model → image is normalized and attached
+    await enhance(EnhanceRequest(prompt="cat", llm_model="gemini-2.5-flash", image=_png_data_url()))
     assert isinstance(captured["messages"][-1]["content"], list)  # multimodal attached
 
 
 async def test_enhance_attaches_image_for_vision_local_llm(monkeypatch):
     captured: dict = {}
     monkeypatch.setattr(promptmod, "chat_stream", _recording_stream(["x"], captured))
-    # gemma-4-local is a LOCAL vision model → image attached too (gated on vision, not provider)
-    await enhance(EnhanceRequest(prompt="cat", llm_model="gemma-4-local", image=_png_data_url()))
+    # qwen3-vl-local is a LOCAL vision model → image attached too (gated on vision, not provider)
+    await enhance(EnhanceRequest(prompt="cat", llm_model="qwen3-vl-local", image=_png_data_url()))
     assert isinstance(captured["messages"][-1]["content"], list)  # multimodal attached
 
 
