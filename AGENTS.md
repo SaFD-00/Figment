@@ -8,6 +8,8 @@ Figment unifies a scientific-figure pipeline (FigGen, vendored as `figgen`) and 
 
 Deeper references live in `docs/`: `ARCHITECTURE.md` (request flows), `WORKFLOWS.md` (ComfyUI builder table, reference-image rules, verify matrix), `MODELS.md` (lineup). `README.md` is the user-facing overview. Read those before large changes — this file is the orientation, they are the detail.
 
+**Always consult the Obsidian vault for project context and decision history** — it holds the *why* behind changes that the repo alone doesn't record. The living project page is `~/Documents/Obsidian Vault/Projects/Figment.md` and dated update-log notes are under `~/Documents/Obsidian Vault/Projects/Figment/`. Read them before substantial work, and record significant updates back there (MobileGPT-V2 pattern: refresh the project page + add a dated detail note that links to it).
+
 ## Commands
 
 Backend (Python 3.11+, `uv`, run from `backend/`):
