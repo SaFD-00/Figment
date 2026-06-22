@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { assetFileUrl, getProjectAssets } from "../../lib/api";
+import { hideBrokenImage } from "../../lib/img";
 import { useEditorStore } from "../../lib/store";
 import type { Asset } from "../../lib/types";
 import { Button } from "../ui/Button";
@@ -77,6 +78,7 @@ export function HistoryStrip({ projectId }: { projectId: string }) {
               <img
                 src={assetFileUrl(a.id)}
                 alt={a.kind}
+                onError={hideBrokenImage}
                 className="h-full w-full object-cover"
               />
             </button>

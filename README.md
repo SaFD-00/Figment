@@ -56,7 +56,8 @@ FigureSpec → 편집 가능한 SVG/PPTX)으로, 로컬 이미지 모델은 **Co
 | **video** (text+image→video, 경량·기본) | `wan22-ti2v` | Wan 2.2 TI2V-5B |
 | **video** (text→video, MoE 품질) | `wan22-t2v` | Wan 2.2 T2V-A14B |
 | **video** (image→video, MoE 품질) | `wan22-i2v` | Wan 2.2 I2V-A14B |
-| 채팅/플래너 LLM | `qwen-9b-local` · `qwen-4b-local` | Qwen3.5 Uncensored (9B / 4B) |
+| 채팅/플래너 LLM (텍스트, 검열 없음) | `qwen-9b-local` · `qwen-4b-local` | Qwen3.5 Uncensored (9B / 4B) |
+| 채팅/플래너 VLM (멀티모달, prompt-enhance 이미지 입력) | `qwen3-vl-local` | Huihui Qwen3-VL 8B abliterated |
 
 부가: ControlNet은 xinsir ControlNet-Union ProMax 단일 파일이 canny/depth/scribble/lineart/**pose**를 모두 커버하며,
 pose 전처리는 DWPose입니다. 업스케일은 RealESRGAN + Ultimate SD Upscale입니다.
@@ -64,7 +65,8 @@ pose 전처리는 DWPose입니다. 업스케일은 RealESRGAN + Ultimate SD Upsc
 ### 클라우드 모델 (OpenRouter)
 
 - **이미지**: GPT Image 2 · Nano Banana 2 · SeeDream 4.5 · FLUX.2 Max/Pro/Flex
-- **LLM**: GPT-OSS 20B/120B (free) · Qwen3.7 Plus · Qwen3.6 Flash · Qwen3.6 35B-A3B
+- **LLM (텍스트)**: GPT-OSS 20B/120B (free) · Qwen3.7 Plus · Qwen3.6 Flash · Qwen3.6 35B-A3B
+- **VLM (멀티모달)**: Gemini 2.5 Flash · GPT-5.4 mini · Qwen3.6 Flash — prompt-enhance에서 이미지를 읽어 반영
 
 ---
 
@@ -162,6 +164,28 @@ bash scripts/21_pull_ollama_models.sh  # Ollama 채팅 LLM pull
 클라우드 figure 파이프라인의 폴백 모델 id(`FIGGEN_PLANNER_MODEL`, `FIGGEN_CLASSIFIER_MODEL`,
 `FIGGEN_VISION_MODEL`, `FIGGEN_CHART_CODER_MODEL`, `FIGGEN_DEFAULT_IMAGER` 등)도 `.env`에 있으며, UI에서 클라우드
 LLM을 고르면 작업별로 덮어씁니다. 전체 목록은 `.env.example`를 참고하세요.
+
+---
+
+## CLI — 터미널만으로 전체 스튜디오 사용
+
+웹앱·서버 없이도 모든 기능을 터미널에서 돌릴 수 있습니다. `scripts/figment`은 백엔드를 **인-프로세스**로 띄워
+(웹앱과 동일한 작업 워커·레지스트리·DB) 모든 파이프라인을 그대로 재사용합니다.
+
+```bash
+scripts/figment generate "눈 내린 숲의 붉은 여우" --mode txt2img --out fox.png
+scripts/figment generate "겨울 분위기로" --mode edit --source photo.png
+scripts/figment enhance "창가의 고양이" --llm-model qwen3-vl-local   # 짧은 아이디어 → 풍부한 영어 프롬프트
+scripts/figment upscale fox.png        # removebg / whitebg 도 (raw 이미지 파일 대상)
+scripts/figment export <asset_id> --fmt pptx
+scripts/figment chat "데이터센터 다이어그램 만들어줘"               # 응답 + GENSPEC 스트리밍
+scripts/figment models                 # 카탈로그 + 모델별 준비 상태 (✓/✗)
+scripts/figment doctor                 # ComfyUI/Ollama/키/가중치 헬스 리포트
+```
+
+`generate`는 6개 모드(`--mode txt2img|img2img|inpaint|edit|controlnet|reference`)를 모두 지원하며
+`--model/--source/--mask/--ref/--seed/--steps/...` 플래그와 `--upscale`/`--remove-bg` 후처리 체이닝을 받습니다.
+전체 플래그는 `scripts/figment <cmd> --help` 참고. (영상 등 전체 검증은 아래 `figment verify`.)
 
 ---
 

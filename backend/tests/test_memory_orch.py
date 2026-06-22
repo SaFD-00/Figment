@@ -3,8 +3,6 @@
 Co-residency: at the 78GB budget the photoreal stack co-fits, so a family switch does NOT free
 ComfyUI; freeing/unloading only kicks in under (artificially lowered) budget pressure.
 """
-import pytest
-
 from app.models_catalog.registry import MODELS
 from app.orchestrator.memory import MemoryOrchestrator
 
@@ -15,7 +13,7 @@ class FakeComfy:
 
 
 class FakeOllama:
-    def __init__(self): self.unloaded = 0; self.warmed = 0
+    def __init__(self): self.unloaded = self.warmed = 0
     async def unload(self, *a, **k): self.unloaded += 1
     async def warm(self, *a, **k): self.warmed += 1
 

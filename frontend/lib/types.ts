@@ -127,6 +127,7 @@ export interface Model {
   nsfw: boolean;
   uses_negative: boolean;
   cloud_model_id: string | null;
+  vision: boolean; // llm: accepts image input (multimodal) — gates image-enhance
   ready: boolean;
 }
 

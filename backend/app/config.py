@@ -29,8 +29,10 @@ class Settings(BaseSettings):
     ollama_url: str = "http://127.0.0.1:11434"
     backend_port: int = 8000
 
+    # Fallback chat/planner LLM when nothing is selected (mirrors .env OLLAMA_LLM and what
+    # scripts/21_pull_ollama_models.sh pulls). The UI picker overrides this per turn; pick
+    # qwen3-vl-local for image-grounded enhance.
     ollama_llm: str = "hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M"
-    ollama_llm_fallback: str = "hf.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive:Q4_K_M"
 
     # Memory budget for a single NVIDIA H100 80GB (usable VRAM after CUDA/driver overhead).
     # The photoreal stack co-resides (~70GB), so this rarely triggers a free/unload.

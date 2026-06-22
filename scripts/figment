@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Figment terminal CLI — thin wrapper around `python -m app.cli` (in-process, no server needed).
+# Usage: scripts/figment <command> [...]   e.g.  scripts/figment generate "a red fox" --mode txt2img
+#        scripts/figment verify --local-only
+set -euo pipefail
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO/backend" && exec uv run python -m app.cli "$@"

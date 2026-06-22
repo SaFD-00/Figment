@@ -111,6 +111,60 @@ export const listAllModels = () => jfetch<ModelCatalog>("/models/all");
 
 export const listLlmModels = () => jfetch<Model[]>("/models/llm");
 
+// ---------- Prompt ----------
+// Upgrade a short/vague idea into a rich English image-generation prompt via the selected LLM.
+// `instruction` is optional "how to enhance" guidance; `image` (a data URL) lets a vision LLM
+// ground the rewrite in an uploaded edit/reference image.
+export async function enhancePrompt(
+  prompt: string,
+  opts?: {
+    llmModel?: string | null;
+    imageModel?: string | null;
+    instruction?: string | null;
+    image?: string | null;
+  },
+): Promise<{ prompt: string }> {
+  const body = JSON.stringify({
+    prompt,
+    llm_model: opts?.llmModel ?? null,
+    image_model: opts?.imageModel ?? null,
+    instruction: opts?.instruction ?? null,
+    image: opts?.image ?? null,
+  });
+  const call = () =>
+    jfetch<{ prompt: string }>("/prompt/enhance", { method: "POST", body });
+  try {
+    return await call();
+  } catch {
+    // A local LLM's first enhance is usually a cold load: the dev proxy resets at ~30s
+    // (surfacing as a 5xx / network error), but that attempt still kicked off the model load,
+    // which Ollama keeps warm. Retry once after a short pause to land on the now-warm model.
+    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      return await call();
+    } catch (err) {
+      const msg = (err as Error)?.message ?? "";
+      // Proxy reset / gateway timeout / network error → no useful detail; show a clear hint.
+      // A real backend error (e.g. 502 "Enhance failed: …") keeps its own message.
+      if (/^50[034]/.test(msg) || /failed to fetch/i.test(msg) || msg === "") {
+        throw new Error(
+          "Prompt enhance timed out — the model may still be loading. Try again.",
+        );
+      }
+      throw err;
+    }
+  }
+}
+
+// Read a File/Blob into a base64 data URL (e.g. to attach an image to prompt-enhance).
+export const fileToDataUrl = (file: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+
 // ---------- Uploads ----------
 export async function uploadFile(
   projectId: string,

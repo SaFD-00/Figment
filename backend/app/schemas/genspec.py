@@ -11,7 +11,7 @@ class Mode(str, Enum):
     txt2img = "txt2img"
     img2img = "img2img"
     inpaint = "inpaint"
-    edit = "edit"          # instruction edit / reference-edit (Kontext, Qwen-Edit)
+    edit = "edit"          # instruction edit (mask→inpaint, else high-denoise img2img)
     controlnet = "controlnet"
     reference = "reference"  # style/look reference (Redux) + identity (InstantID/PuLID/IP-Adapter)
     video = "video"          # NSFW text/image→video (Wan 2.2)
@@ -22,6 +22,17 @@ ControlType = Literal["canny", "depth", "scribble", "lineart", "pose"]
 
 # Max reference images per request. Mirror in frontend/lib/constants.ts — keep in sync.
 MAX_REFERENCE_IMAGES = 6
+
+# Local reference cap: on H100 the multi-ref local builders (Redux style, Kontext edit) consume
+# every reference, so local matches the global cap; single-ref builders (identity, ControlNet) use
+# the first. Mirror in frontend/lib/constants.ts (LOCAL_MAX_REFERENCE_IMAGES).
+LOCAL_MAX_REFS = MAX_REFERENCE_IMAGES
+
+# Local (edit/reference) working-size cap, longest side in px. SDXL is 1024-native and the
+# reference encoders resize internally, so source + reference uploads are downscaled to this before
+# they reach ComfyUI (see orchestrator.queue._prepare_inputs) — a sane working-resolution default,
+# not a memory necessity on the 80GB H100.
+LOCAL_MAX_SIDE = 1024
 
 
 class ReferenceImage(BaseModel):
@@ -39,11 +50,11 @@ class GenSpec(BaseModel):
     """One generation/edit request. `model` may be null → backend picks by mode + free RAM."""
     version: int = 1
     mode: Mode = Mode.txt2img
-    model: Optional[str] = None      # image registry id, e.g. "chroma-hd" / "seedream-4.5"
-    llm_model: Optional[str] = None  # chat/planner LLM id (figure engine), e.g. "minimax-m3"
+    model: Optional[str] = None      # image registry id, e.g. "chroma-hd" / "gpt-image-2"
+    llm_model: Optional[str] = None  # chat/planner LLM id, e.g. "qwen3-vl-local" / "gemini-2.5-flash"
 
     prompt: str = ""
-    negative_prompt: str = ""        # used by SDXL/Pony; ignored by FLUX/Chroma
+    negative_prompt: str = ""        # used by the local SDXL checkpoint; ignored by cloud models
 
     width: int = 1024
     height: int = 1024

@@ -69,12 +69,12 @@ class OpenRouterClient(OpenAIClient):
 
 
 class OpenRouterImageClient:
-    """SeedReam 4.5 등 OpenRouter 이미지 모델 — chat-completions + modalities(httpx)."""
+    """GPT Image / Gemini Image 등 OpenRouter 이미지 모델 — chat-completions + modalities(httpx)."""
 
     def __init__(
         self,
         api_key: str,
-        model: str = "bytedance-seed/seedream-4.5",
+        model: str = "openai/gpt-5.4-image-2",   # VERIFY slug
         *,
         base_url: str = OPENROUTER_BASE_URL,
     ):

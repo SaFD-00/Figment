@@ -3,7 +3,6 @@ the Metal GPU. Heavy import is lazy so the app starts without onnx warm-up cost.
 from __future__ import annotations
 
 import io
-from typing import Optional
 
 from PIL import Image
 

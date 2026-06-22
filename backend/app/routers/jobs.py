@@ -1,7 +1,6 @@
 """Jobs: submit a GenSpec, poll status, stream progress (SSE), cancel."""
 from __future__ import annotations
 
-import json
 
 from fastapi import APIRouter, HTTPException
 from sse_starlette.sse import EventSourceResponse

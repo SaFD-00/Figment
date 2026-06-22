@@ -46,6 +46,7 @@ class ModelDef:
     kind: str = "image"              # "image" | "video" | "llm"
     provider: Optional[str] = None   # cloud: "openrouter"|"openai"; local llm: "ollama"
     cloud_model_id: Optional[str] = None  # provider slug for cloud / ollama tag for local llm
+    vision: bool = False             # llm: accepts image input (multimodal) — gates image-enhance
 
 
 # Shared FLUX/Chroma encoders + VAE (native safetensors on CUDA). Chroma uses a SINGLE T5.
@@ -225,6 +226,10 @@ MODELS: dict[str, ModelDef] = {
 }
 
 # ── Chat / planner LLM models ───────────────────────────────────────────────
+# Mixed lineup: uncensored local text models (Qwen3.5) + multimodal VLMs. A `vision=True` entry
+# gates image-grounded prompt-enhance (the Ollama client converts OpenAI-style multimodal messages
+# into Ollama's native per-message `images` array; cloud forwards as-is). Non-vision picks fall back
+# to text-only enhance.
 LLM_MODELS: dict[str, ModelDef] = {
     "qwen-9b-local": ModelDef(
         id="qwen-9b-local", family="ollama", label="Qwen3.5-9B Uncensored (local · Ollama)",
@@ -235,6 +240,14 @@ LLM_MODELS: dict[str, ModelDef] = {
         id="qwen-4b-local", family="ollama", label="Qwen3.5-4B Uncensored (local · Ollama, light)",
         vram_gb=3.4, supports=(), engine=ENGINE_LOCAL_OLLAMA, kind="llm", provider="ollama",
         cloud_model_id="hf.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+    ),
+    # Local multimodal VLM — uncensored "thinking" model so local prompt-enhance / mask judgement
+    # can read images too.
+    "qwen3-vl-local": ModelDef(
+        id="qwen3-vl-local", family="ollama",
+        label="Huihui Qwen3-VL 8B abliterated (local · Ollama, multimodal)",
+        vram_gb=5.0, supports=(), engine=ENGINE_LOCAL_OLLAMA, kind="llm", provider="ollama",
+        cloud_model_id="huihui_ai/qwen3-vl-abliterated:8b", vision=True,  # VERIFY Ollama tag
     ),
     "gpt-oss-20b": ModelDef(
         id="gpt-oss-20b", family="cloud", label="GPT-OSS 20B (cloud · OpenRouter, free)",
@@ -260,6 +273,25 @@ LLM_MODELS: dict[str, ModelDef] = {
         id="qwen3-35b-a3b", family="cloud", label="Qwen3.6 35B-A3B (cloud · OpenRouter)",
         vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
         cloud_model_id="qwen/qwen3.6-35b-a3b",
+    ),
+    # Cloud multimodal VLMs (OpenRouter) — any one serves chat + planner + vision-enhance.
+    "gemini-2.5-flash": ModelDef(
+        id="gemini-2.5-flash", family="cloud",
+        label="Gemini 2.5 Flash (cloud · OpenRouter, multimodal)",
+        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
+        cloud_model_id="google/gemini-2.5-flash", vision=True,
+    ),
+    "gpt-5.4-mini": ModelDef(
+        id="gpt-5.4-mini", family="cloud",
+        label="GPT-5.4 mini (cloud · OpenRouter, multimodal)",
+        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
+        cloud_model_id="openai/gpt-5.4-mini", vision=True,   # VERIFY slug
+    ),
+    "qwen3-6-flash": ModelDef(
+        id="qwen3-6-flash", family="cloud",
+        label="Qwen3.6 Flash (cloud · OpenRouter, multimodal)",
+        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
+        cloud_model_id="qwen/qwen3-6-flash", vision=True,   # VERIFY slug
     ),
 }
 

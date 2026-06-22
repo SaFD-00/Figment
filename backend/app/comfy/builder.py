@@ -91,7 +91,7 @@ def _defaults(spec: GenSpec, m: ModelDef) -> dict:
 
 def _apply_loras(g: _G, model_link, clip_link, m: ModelDef, spec: GenSpec):
     """Chain builtin + user LoRAs; returns (model_link, clip_link)."""
-    loras = [(name, w) for name, w in m.builtin_loras] + [(l.name, l.weight) for l in spec.loras]
+    loras = [(name, w) for name, w in m.builtin_loras] + [(lo.name, lo.weight) for lo in spec.loras]
     for name, weight in loras:
         nid = g.add("LoraLoader", {
             "lora_name": name, "strength_model": weight, "strength_clip": weight,

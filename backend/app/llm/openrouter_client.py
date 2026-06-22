@@ -45,7 +45,8 @@ class OpenRouterChatClient:
             "HTTP-Referer": "https://github.com/SaFD-00/Figment",
             "X-Title": "Figment",
         }
-        async with httpx.AsyncClient(base_url=self.base, timeout=None) as http:
+        timeout = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
+        async with httpx.AsyncClient(base_url=self.base, timeout=timeout) as http:
             async with http.stream("POST", "/chat/completions", json=payload, headers=headers) as r:
                 r.raise_for_status()
                 async for line in r.aiter_lines():

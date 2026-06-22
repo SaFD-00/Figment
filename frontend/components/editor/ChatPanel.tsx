@@ -9,7 +9,8 @@
 //   the parent via onRedraw (the same input box is reused).
 
 import { useEffect, useRef, useState } from "react";
-import { assetFileUrl, getMessages } from "../../lib/api";
+import { assetFileUrl, enhancePrompt, getMessages } from "../../lib/api";
+import { hideBrokenImage } from "../../lib/img";
 import { streamChat } from "../../lib/sse";
 import { useEditorStore } from "../../lib/store";
 import { useModelsStore } from "../../lib/models";
@@ -29,6 +30,8 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [enhancing, setEnhancing] = useState(false);
+  const [prevInput, setPrevInput] = useState<string | null>(null); // original kept for undo
   const [assistantDraft, setAssistantDraft] = useState("");
   const [pendingError, setPendingError] = useState<string | null>(null);
 
@@ -37,8 +40,7 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
   const setChatGenSpec = useEditorStore((s) => s.setChatGenSpec);
   const setInitialPrompt = useEditorStore((s) => s.setInitialPrompt);
   const activeJob = useEditorStore((s) => s.activeJob);
-  const images = useModelsStore((s) => s.image);
-  const selectedImageId = useModelsStore((s) => s.selectedImageId);
+  const getImageModelForMode = useModelsStore((s) => s.getImageModelForMode);
   const selectedLlmId = useModelsStore((s) => s.selectedLlmId);
   const { run } = useJobRunner();
 
@@ -135,6 +137,32 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
     }, { llmModel: selectedLlmId });
   }
 
+  async function handleEnhance() {
+    if (enhancing || streaming) return;
+    const text = input.trim();
+    if (!text) return;
+    setPendingError(null);
+    setEnhancing(true);
+    try {
+      const { prompt: enhanced } = await enhancePrompt(text, {
+        llmModel: selectedLlmId,
+        imageModel: getImageModelForMode("txt2img"),
+      });
+      setPrevInput(input); // remember the original for undo
+      setInput(enhanced);
+    } catch (e) {
+      setPendingError((e as Error)?.message ?? "Enhance failed.");
+    } finally {
+      setEnhancing(false);
+    }
+  }
+
+  function handleUndoEnhance() {
+    if (prevInput === null) return;
+    setInput(prevInput);
+    setPrevInput(null);
+  }
+
   async function handleGenerateFromSpec() {
     if (!chatGenSpec) return;
     const spec: GenSpec = {
@@ -142,11 +170,11 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
       seed: seed.trim() === "" ? null : Number(seed),
       steps: steps.trim() === "" ? null : Number(steps),
     };
-    // The user's explicitly-picked image model wins over the LLM's suggestion, but only when
-    // it supports this spec's mode (e.g. don't force a txt2img-only model onto an edit job).
-    const picked = images.find((m) => m.id === selectedImageId) ?? null;
-    if (picked && picked.modes.includes(spec.mode)) {
-      spec.model = picked.id;
+    // The user's per-mode image pick wins over the LLM's suggestion. getImageModelForMode
+    // already returns a model compatible with this spec's mode, so it's always safe to apply.
+    const picked = getImageModelForMode(spec.mode);
+    if (picked) {
+      spec.model = picked;
     }
     try {
       setChatGenSpec(null);
@@ -158,6 +186,34 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
 
   const jobRunning =
     activeJob?.status === "running" || activeJob?.status === "queued";
+
+  const enhanceActions = (
+    <div className="flex items-center gap-2">
+      {prevInput !== null && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleUndoEnhance}
+          disabled={enhancing || streaming}
+          title="Restore your original prompt"
+        >
+          ↶ Undo
+        </Button>
+      )}
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        onClick={() => void handleEnhance()}
+        disabled={enhancing || streaming || !input.trim()}
+        title="Let the selected LLM expand your prompt into rich detail"
+      >
+        {enhancing && <Spinner />}
+        {enhancing ? "Enhancing…" : "Enhance"}
+      </Button>
+    </div>
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -241,18 +297,25 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
         className="border-t border-line p-3"
       >
         {maskMode ? (
-          <p className="mb-2 text-xs font-medium text-accent">
-            Mask mode — type a prompt and press Generate redraw.
-          </p>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-accent">
+              Mask mode — type a prompt and press Generate redraw.
+            </p>
+            {enhanceActions}
+          </div>
         ) : (
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <ModelPillRow placement="top" />
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <ModelPillRow mode="txt2img" placement="top" />
+            {enhanceActions}
           </div>
         )}
         <div className="flex items-end gap-2">
           <textarea
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              if (prevInput !== null) setPrevInput(null); // editing drops the undo offer
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -271,7 +334,7 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
             type="submit"
             variant="primary"
             size="md"
-            disabled={streaming || !input.trim()}
+            disabled={streaming || enhancing || !input.trim()}
           >
             {streaming && <Spinner />}
             {maskMode ? "Redraw" : "Send"}
@@ -300,6 +363,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           <img
             src={assetFileUrl(resultAsset)}
             alt="result"
+            onError={hideBrokenImage}
             className="mt-2 w-32 rounded-lg border border-line"
           />
         )}

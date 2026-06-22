@@ -409,8 +409,7 @@ class Orchestrator:
                  payload={"done": i, "total": total})
             r = await gen.generate(AssetRequest(
                 description=node.gen_prompt or node.alt, kind="icon",
-                style_preset=req.style_preset, transparency_required=node.needs_transparency,
-                provider_hint=node.provider_hint))
+                style_preset=req.style_preset, transparency_required=node.needs_transparency))
             return node.id, r.asset_id, r.cached
 
         results = await asyncio.gather(*[_one(i, n) for i, n in enumerate(targets)])

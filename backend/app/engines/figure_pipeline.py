@@ -12,7 +12,6 @@ back to the mock provider (offline-friendly), still emitting real SVG/PPTX artif
 """
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path

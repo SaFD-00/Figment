@@ -16,6 +16,17 @@ from app.services import export_ops, storage
 router = APIRouter(prefix="/assets", tags=["assets"])
 
 
+def _require_file(a: dict) -> None:
+    """404 (not 500) when the DB row survives but its file was removed from disk.
+
+    Asset rows outlive their files (manual cleanup, a deleted project's leftover output dir,
+    a moved AISTUDIO_HOME). Without this guard FileResponse/open() raises FileNotFoundError,
+    which surfaces as a 500 — a stale thumbnail should degrade to a clean 404 instead.
+    """
+    if not os.path.exists(a["path"]):
+        raise HTTPException(404, "asset file missing on disk")
+
+
 @router.get("/{aid}")
 async def get_asset(aid: str) -> dict:
     a = await repo.get_asset(aid)
@@ -29,6 +40,7 @@ async def get_file(aid: str):
     a = await repo.get_asset(aid)
     if not a:
         raise HTTPException(404, "not found")
+    _require_file(a)
     return FileResponse(a["path"], media_type="image/png")
 
 
@@ -37,6 +49,7 @@ async def upscale(aid: str) -> dict:
     a = await repo.get_asset(aid)
     if not a:
         raise HTTPException(404, "not found")
+    _require_file(a)
     data = open(a["path"], "rb").read()
     out = await pipeline.upscale_image(deps.comfy(), data)
     path, w, h = storage.save_image(a["project_id"], out, "upscaled")
@@ -49,6 +62,7 @@ async def whitebg(aid: str) -> dict:
     a = await repo.get_asset(aid)
     if not a:
         raise HTTPException(404, "not found")
+    _require_file(a)
     data = open(a["path"], "rb").read()
     out = await pipeline.white_bg(data)
     path, w, h = storage.save_image(a["project_id"], out, "nobg")
@@ -61,6 +75,7 @@ async def removebg(aid: str) -> dict:
     a = await repo.get_asset(aid)
     if not a:
         raise HTTPException(404, "not found")
+    _require_file(a)
     data = open(a["path"], "rb").read()
     out = await pipeline.remove_bg(data)
     path, w, h = storage.save_image(a["project_id"], out, "nobg")
@@ -82,6 +97,7 @@ async def export(aid: str, fmt: str = "png"):
     fmt = fmt.lower()
 
     if fmt == "png":
+        _require_file(a)
         return FileResponse(a["path"], media_type="image/png",
                             filename=f"figment_{aid}.png")
 
@@ -90,6 +106,7 @@ async def export(aid: str, fmt: str = "png"):
         if sidecar and os.path.exists(sidecar):
             return FileResponse(sidecar, media_type=export_ops.SVG_MEDIA,
                                 filename=f"figment_{aid}.svg")
+        _require_file(a)
         png = open(a["path"], "rb").read()
         svg = await asyncio.to_thread(export_ops.png_to_svg, png)
         return Response(content=svg, media_type=export_ops.SVG_MEDIA,
@@ -100,6 +117,7 @@ async def export(aid: str, fmt: str = "png"):
         if sidecar and os.path.exists(sidecar):
             return FileResponse(sidecar, media_type=export_ops.PPTX_MEDIA,
                                 filename=f"figment_{aid}.pptx")
+        _require_file(a)
         png = open(a["path"], "rb").read()
         pptx = await asyncio.to_thread(export_ops.png_to_pptx, png)
         return Response(content=pptx, media_type=export_ops.PPTX_MEDIA,

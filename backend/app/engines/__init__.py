@@ -13,7 +13,6 @@ from __future__ import annotations
 from app.config import get_settings
 from app.engines.cloud import cloud_key_present, figure_settings
 from app.models_catalog.registry import (
-    ENGINE_CLOUD_OPENROUTER,
     ENGINE_LOCAL_COMFY,
     ENGINE_LOCAL_OLLAMA,
     ModelDef,

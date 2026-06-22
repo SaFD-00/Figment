@@ -4,8 +4,8 @@ Key presence is monkeypatched so the test is independent of whether the dev `.en
 OpenRouter key: cloud LLMs route to OpenRouter when a key exists and degrade to the local
 Ollama default when it doesn't; local LLMs map to their Ollama tag; unknown/None → default.
 """
-import app.routers.chat as chat
-from app.routers.chat import _resolve_chat
+import app.llm.routing as routing
+from app.llm.routing import resolve_chat as _resolve_chat
 
 
 class _FakeSettings:
@@ -17,24 +17,24 @@ class _FakeSettings:
 
 
 def _patch_key(monkeypatch, present: bool):
-    monkeypatch.setattr(chat, "figure_settings", lambda: _FakeSettings(present))
+    monkeypatch.setattr(routing, "figure_settings", lambda: _FakeSettings(present))
 
 
 def test_local_llm_maps_to_ollama_tag(monkeypatch):
     _patch_key(monkeypatch, True)  # key state irrelevant for local
-    provider, model = _resolve_chat("qwen-9b-local")
+    provider, model = _resolve_chat("qwen3-vl-local")
     assert provider == "ollama"
-    assert model == "hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M"
+    assert model == "huihui_ai/qwen3-vl-abliterated:8b"
 
 
 def test_cloud_llm_with_key_routes_to_openrouter(monkeypatch):
     _patch_key(monkeypatch, True)
-    assert _resolve_chat("qwen3-plus") == ("openrouter", "qwen/qwen3.7-plus")
+    assert _resolve_chat("gemini-2.5-flash") == ("openrouter", "google/gemini-2.5-flash")
 
 
 def test_cloud_llm_without_key_falls_back_to_default_ollama(monkeypatch):
     _patch_key(monkeypatch, False)
-    assert _resolve_chat("qwen3-plus") == ("ollama", None)
+    assert _resolve_chat("gemini-2.5-flash") == ("ollama", None)
 
 
 def test_none_uses_default_ollama(monkeypatch):

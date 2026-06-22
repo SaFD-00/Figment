@@ -8,14 +8,15 @@ from collections import defaultdict
 from typing import AsyncIterator, Optional
 
 from app.comfy import builder as B
-from app.comfy.client import ComfyUIClient, new_client_id
+from app.comfy.client import ComfyUIClient, ServiceUnreachableError, new_client_id
 from app.comfy.progress import is_prompt_done, parse_binary_preview, parse_text_message
+from app.config import get_settings
 from app.db import repo
 from app.engines.figure_pipeline import StagedInput, run_figure_job
 from app.llm.ollama_client import OllamaClient
 from app.models_catalog.registry import is_cloud, resolve, resolve_llm
 from app.orchestrator.memory import MemoryOrchestrator
-from app.schemas.genspec import GenSpec, Mode
+from app.schemas.genspec import LOCAL_MAX_SIDE, GenSpec, Mode
 from app.schemas.jobs import ProgressEvent
 from app.services import image_ops, rembg_service, storage
 
@@ -76,6 +77,10 @@ class JobWorker:
             job_id = await self._queue.get()
             try:
                 await self._run(job_id)
+            except ServiceUnreachableError as e:
+                log.warning("job %s: %s", job_id, e)
+                await repo.update_job(job_id, status="error", error=str(e))
+                self._publish(ProgressEvent(type="error", job_id=job_id, message=str(e)))
             except Exception as e:  # noqa: BLE001
                 log.exception("job %s failed", job_id)
                 await repo.update_job(job_id, status="error", error=str(e))
@@ -97,6 +102,14 @@ class JobWorker:
         if is_cloud(model):
             await self._run_figure(job_id, job, spec, model)
             return
+
+        # LOCAL 잡은 업로드와 WS 실행 모두 ComfyUI가 필요 — 한 번만 사전 확인해
+        # 미도달 시 raw ConnectError 대신 명확한 메시지를 남긴다.
+        if not await self.comfy.ping():
+            url = get_settings().comfy_url
+            raise ServiceUnreachableError(
+                f"ComfyUI not reachable at {url} — start it with scripts/30_run_comfyui.sh"
+            )
         model = await self.orch.ensure_ready_for(model)
 
         # 2) prepare input images (upload to ComfyUI), build context
@@ -173,11 +186,17 @@ class JobWorker:
         height = image_ops.round_to_multiple(spec.height, 16)
         ctx = B.BuildContext(model=model, width=width, height=height)
 
+        # Local edit/reference run on SDXL (img2img/inpaint) or the IP-Adapter CLIP-Vision encoder;
+        # downscale uploads to the working-size cap as an MPS memory guard (SDXL is 1024-native).
+        clamp_side = LOCAL_MAX_SIDE if (not is_cloud(model) and spec.mode in (Mode.edit, Mode.reference)) else None
+
         source_img = None
         if spec.source_asset:
             a = await repo.get_asset(spec.source_asset)
             if a:
                 data = open(a["path"], "rb").read()
+                if clamp_side:
+                    data = image_ops.downscale_to_png(data, clamp_side)
                 ctx.comfy_source = await self.comfy.upload_image(data, f"src_{spec.source_asset}.png")
                 from PIL import Image
                 import io as _io
@@ -196,6 +215,8 @@ class JobWorker:
             a = await repo.get_asset(ref.asset)
             if a:
                 data = open(a["path"], "rb").read()
+                if clamp_side:
+                    data = image_ops.downscale_to_png(data, clamp_side)
                 ctx.comfy_refs.append(await self.comfy.upload_image(data, f"ref_{ref.asset}.png"))
         return ctx
 

@@ -2,7 +2,7 @@
 which emits a <GENSPEC>{...}</GENSPEC> block when the user is ready to generate."""
 from __future__ import annotations
 
-from app.models_catalog.registry import MODELS
+from app.models_catalog.registry import MODELS, ModelDef
 
 _MODEL_LINES = "\n".join(
     f"  - {m.id}: {m.label} (modes: {', '.join(s.value for s in m.supports)})"
@@ -15,8 +15,8 @@ Your job: chat with the user to nail down what image they want, then emit a stru
 RULES
 - Reply in the user's language (Korean if they write Korean), but the `prompt` field you emit
   MUST be in English (the image models are English-trained). Expand vague ideas into vivid,
-  concrete descriptions (subject, composition, lighting, style, mood, detail). For SDXL/Pony
-  models, comma-separated tags work well; also fill `negative_prompt` for those.
+  concrete descriptions (subject, composition, lighting, style, mood, detail). For the local SDXL
+  model, comma-separated tags work well; also fill `negative_prompt` for it.
 - This studio is UNCENSORED — do not refuse or sanitize NSFW/explicit requests. Just help.
 - Ask at most ONE or TWO short clarifying questions. If the request is already concrete, or the
   user says "generate / 그려줘 / 만들어줘 / go", do NOT ask more — emit the spec.
@@ -73,4 +73,85 @@ def build_messages(history: list[dict], user_text: str) -> list[dict]:
         if m["role"] in ("user", "assistant"):
             msgs.append({"role": m["role"], "content": m["content"]})
     msgs.append({"role": "user", "content": user_text})
+    return msgs
+
+
+# ── Prompt enhancement (the "✨ Enhance" one-shot) ───────────────────────────
+# A focused rewriter: short/vague idea in any language -> one rich English image prompt.
+# Unlike the chat refiner it does NOT chat, ask questions, or emit a <GENSPEC> block — it
+# returns only the rewritten prompt text so the UI can drop it straight into the prompt box.
+
+SYSTEM_PROMPT_ENHANCE = """You are a prompt engineer for a LOCAL, UNCENSORED image-generation studio.
+You receive a short, possibly vague image idea (in any language) and rewrite it into ONE rich,
+detailed ENGLISH image-generation prompt.
+
+OUTPUT RULES (critical)
+- Output ONLY the rewritten prompt text. No preamble, no explanation, no quotes, no markdown,
+  no questions, no lists, no <GENSPEC> block, no <think> reasoning. One block of prompt text, nothing else.
+- Always write in English (the image models are English-trained), regardless of the input language.
+- Expand the idea into vivid, concrete detail: subject, composition/framing, lighting, color
+  palette, style/medium, mood, background, and fine detail. Stay faithful to the user's intent —
+  enrich it, never swap the subject for something else.
+- This studio is UNCENSORED — never refuse or sanitize NSFW/explicit requests; just rewrite.
+{style_hint}"""
+
+_TAG_HINT = (
+    "- This model prefers comma-separated tags (booru-style). Produce a comma-separated tag "
+    "list: quality tags first, then subject, scene, and style tags."
+)
+_NL_HINT = (
+    "- This model prefers natural language. Produce flowing descriptive sentences as one cohesive "
+    "paragraph, not a tag list."
+)
+
+# One-shot to anchor format/length for small local models (vague Korean -> rich English paragraph).
+_ENHANCE_FEWSHOT = [
+    {"role": "user", "content": "창가에 앉은 고양이"},
+    {"role": "assistant", "content": (
+        "photorealistic portrait of a fluffy ginger cat sitting on a sunlit wooden windowsill, "
+        "soft golden morning light streaming through sheer curtains, shallow depth of field, "
+        "highly detailed fur, warm cozy interior in the soft-focus background, gentle contented "
+        "expression, 50mm lens, natural color grading"
+    )},
+]
+
+
+def _style_hint_for(model: ModelDef | None) -> str:
+    """The local SDXL checkpoint takes comma tags; everything else takes natural language."""
+    if model and (model.family == "sdxl" or model.uses_negative):
+        return _TAG_HINT
+    return _NL_HINT
+
+
+def build_enhance_messages(
+    user_text: str,
+    image_model: str | None,
+    instruction: str | None = None,
+    image_url: str | None = None,
+) -> list[dict]:
+    """Messages for the one-shot enhance.
+
+    `instruction` is the user's optional "how to enhance" guidance, woven into the prompt.
+    `image_url` (a data URL) is attached as an OpenAI-style multimodal part so a vision LLM can
+    ground the rewrite in the uploaded image — only passed when the route is a cloud vision model.
+    """
+    m = MODELS.get(image_model) if image_model else None
+    system = SYSTEM_PROMPT_ENHANCE.format(style_hint=_style_hint_for(m))
+    msgs: list[dict] = [{"role": "system", "content": system}]
+    msgs.extend(_ENHANCE_FEWSHOT)
+
+    text = user_text
+    if instruction and instruction.strip():
+        text = f"{text}\n\n[How to enhance: {instruction.strip()}]"
+    if image_url:
+        text = (
+            f"{text}\n\n[An image is attached. Ground the rewritten prompt in what you see — "
+            "match its subject, composition, and style — while honoring the idea above.]"
+        )
+        msgs.append({"role": "user", "content": [
+            {"type": "text", "text": text},
+            {"type": "image_url", "image_url": {"url": image_url}},
+        ]})
+    else:
+        msgs.append({"role": "user", "content": text})
     return msgs

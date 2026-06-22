@@ -47,7 +47,6 @@ BoxRole = Literal["input", "output", "process", "model", "data", "decision", "lo
 TextRole = Literal["title", "heading", "body", "caption", "annotation"]
 HAlign = Literal["left", "center", "right"]
 ChartKind = Literal["line", "bar", "grouped_bar", "scatter", "heatmap", "box", "violin", "custom"]
-ProviderHint = Literal["openai"]  # GPT-only (과거 gemini_pro/flash 제거)
 
 
 class BoxElement(ElementBase):
@@ -74,7 +73,6 @@ class ImageElement(ElementBase):
     asset_id: str | None = None  # 생성 후 채움 (래스터 PNG)
     svg_asset_id: str | None = None  # 벡터화 변형(편집 가능) — SVG 렌더 시 인라인
     needs_transparency: bool = True
-    provider_hint: ProviderHint | None = None
 
 
 class ChartElement(ElementBase):

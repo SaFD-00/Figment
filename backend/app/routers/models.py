@@ -24,6 +24,7 @@ def _serialize(m: ModelDef) -> dict:
         "nsfw": m.nsfw,
         "uses_negative": m.uses_negative,
         "cloud_model_id": m.cloud_model_id,
+        "vision": m.vision,             # llm: accepts image input (multimodal)
         "ready": model_ready(m),
     }
 
