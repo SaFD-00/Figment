@@ -1,11 +1,12 @@
 "use client";
 
-export type HomeMode = "generate" | "edit" | "reference";
+export type HomeMode = "generate" | "edit" | "reference" | "figure";
 
 const TABS: { id: HomeMode; label: string }[] = [
   { id: "generate", label: "Generate" },
   { id: "edit", label: "Edit / Upload" },
   { id: "reference", label: "Reference" },
+  { id: "figure", label: "Figure" },
 ];
 
 export function ModeTabs({

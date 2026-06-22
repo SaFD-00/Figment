@@ -78,6 +78,8 @@ def test_default_by_mode_covers_every_mode():
 
 def test_resolve_picks_a_supporting_local_model_per_mode():
     for mode in Mode:
+        if mode == Mode.figure:
+            continue  # figure is a cloud-only mode (no local backend) — see DEFAULT_BY_MODE
         m = resolve(None, mode)
         assert not is_cloud(m), f"default for {mode} should be local, got {m.id}"
         assert mode in m.supports

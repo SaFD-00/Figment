@@ -14,12 +14,13 @@ from typing import AsyncIterator, Optional
 from app.comfy.client import ComfyUIClient, ServiceUnreachableError
 from app.db import repo
 from app.engines.base import EngineContext, EngineResult, GenerationEngine
+from app.engines.cloud_image import CloudImageEngine
 from app.engines.figure import FigureEngine
 from app.engines.local_comfy import LocalComfyEngine
 from app.llm.ollama_client import OllamaClient
 from app.models_catalog.registry import ModelDef, is_cloud, resolve, resolve_llm
 from app.orchestrator.memory import MemoryOrchestrator
-from app.schemas.genspec import GenSpec
+from app.schemas.genspec import GenSpec, Mode
 from app.schemas.jobs import ProgressEvent
 from app.services import rembg_service, storage
 
@@ -36,8 +37,9 @@ class JobWorker:
         self._last: dict[str, ProgressEvent] = {}
         self._cancel: set[str] = set()
         self._task: Optional[asyncio.Task] = None
-        # Engines are stateless; instantiate once. Cloud raster engine is wired in a later step.
+        # Engines are stateless; instantiate once.
         self._local_engine = LocalComfyEngine()
+        self._cloud_image_engine = CloudImageEngine()
         self._figure_engine = FigureEngine()
 
     # ── lifecycle ──────────────────────────────────────────────────────────────
@@ -96,10 +98,12 @@ class JobWorker:
 
     # ── run one job ──────────────────────────────────────────────────────────────
     def _select_engine(self, model: ModelDef, spec: GenSpec) -> GenerationEngine:
-        """Pick the backend for a resolved (model, mode). Cloud → figure pipeline for now;
-        a cloud raster engine is added in a later step."""
+        """Pick the backend for a resolved (model, mode):
+          • cloud + Mode.figure → FigGen structured figure (SVG/PPTX)
+          • cloud + any raster mode → OpenRouter raster image
+          • local → ComfyUI graph"""
         if is_cloud(model):
-            return self._figure_engine
+            return self._figure_engine if spec.mode == Mode.figure else self._cloud_image_engine
         return self._local_engine
 
     async def _run(self, job_id: str) -> None:

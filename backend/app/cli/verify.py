@@ -187,11 +187,12 @@ def _build_cases(pid: str, pre: Prereqs, s: Samples) -> list[VerifyCase]:
             return assert_fn(asset)
         return VerifyCase("LOCAL", name, needs, run, mode)
 
-    def img_cloud(name, mode, factory):
-        needs = ["openrouter"] + (["net"] if mode != "txt2img" else [])
+    def img_cloud(name, mode, factory, assert_fn=_assert_image):
+        # img2img/edit/reference stage a sample image first → need net; txt2img/figure don't.
+        needs = ["openrouter"] + (["net"] if mode in ("img2img", "edit", "reference") else [])
         async def run():
             asset = await run_genspec(factory(), project_id=pid, show_progress=False, label=name[:16])
-            return _assert_cloud(asset)
+            return assert_fn(asset)
         return VerifyCase("CLOUD", name, needs, run, mode)
 
     def llm_chat(name, needs, llm_id):
@@ -296,17 +297,26 @@ def _build_cases(pid: str, pre: Prereqs, s: Samples) -> list[VerifyCase]:
                                   prompt="gentle camera push-in, falling snow",
                                   source_asset=s.source, video_frames=25)),
 
-        # ── CLOUD image (OpenRouter → figure pipeline) ──
-        img_cloud("gpt-image-2 / txt2img", "txt2img",
+        # ── CLOUD raster image (OpenRouter, interchangeable with local — no sidecars) ──
+        img_cloud("gpt-image-2 / txt2img (raster)", "txt2img",
                   lambda: GenSpec(mode=Mode.txt2img, model="gpt-image-2",
-                                  prompt="a labeled diagram of the water cycle")),
-        img_cloud("gpt-image-2 / edit", "edit",
+                                  prompt="a photorealistic red fox in a snowy forest")),
+        img_cloud("gpt-image-2 / img2img (raster)", "img2img",
+                  lambda: GenSpec(mode=Mode.img2img, model="gpt-image-2",
+                                  prompt="the same scene as an oil painting",
+                                  source_asset=s.source, denoise=0.6)),
+        img_cloud("gpt-image-2 / edit (raster)", "edit",
                   lambda: GenSpec(mode=Mode.edit, model="gpt-image-2",
-                                  prompt="add clean callout labels", source_asset=s.source)),
-        img_cloud("nano-banana-2 / reference", "reference",
+                                  prompt="add warm morning light", source_asset=s.source)),
+        img_cloud("nano-banana-2 / reference (raster)", "reference",
                   lambda: GenSpec(mode=Mode.reference, model="nano-banana-2",
-                                  prompt="a figure matching this reference style",
+                                  prompt="a portrait matching this reference style",
                                   reference_images=[ReferenceImage(asset=a) for a in (s.ref1,) if a])),
+        # ── CLOUD figure (FigGen → editable SVG/PPTX) ──
+        img_cloud("gpt-image-2 / figure (svg+pptx)", "figure",
+                  lambda: GenSpec(mode=Mode.figure, model="gpt-image-2",
+                                  prompt="a labeled diagram of the water cycle"),
+                  assert_fn=_assert_cloud),
 
         # ── LLM (chat + vision enhance) ──
         llm_chat("qwen3-vl-local / chat", ["ollama", "model-tag:qwen3-vl-local"], "qwen3-vl-local"),

@@ -116,15 +116,19 @@ MODELS: dict[str, ModelDef] = {
         template="video_wan",
     ),
     # ── Cloud image models (all OpenRouter) ─────────────────────────────────
+    # Cloud models do raster images (CloudImageEngine) for the normal modes AND structured
+    # figures (SVG/PPTX via FigureEngine) for Mode.figure.
     "gpt-image-2": ModelDef(
         id="gpt-image-2", family="cloud", label="GPT Image 2 (cloud · OpenRouter)",
-        vram_gb=0.0, supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.inpaint),
+        vram_gb=0.0,
+        supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.inpaint, Mode.reference, Mode.figure),
         engine=ENGINE_CLOUD_OPENROUTER, kind="image", provider="openrouter",
         cloud_model_id="openai/gpt-image-2",   # VERIFY slug
     ),
     "nano-banana-2": ModelDef(
         id="nano-banana-2", family="cloud", label="Nano Banana 2 (cloud · OpenRouter)",
-        vram_gb=0.0, supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.reference),
+        vram_gb=0.0,
+        supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.inpaint, Mode.reference, Mode.figure),
         engine=ENGINE_CLOUD_OPENROUTER, kind="image", provider="openrouter",
         cloud_model_id="google/nano-banana-2",   # VERIFY slug
     ),
@@ -175,6 +179,7 @@ DEFAULT_BY_MODE: dict[Mode, str] = {
     Mode.controlnet: "lustify",
     Mode.reference: "redux",
     Mode.video: "wan22-ti2v",
+    Mode.figure: "gpt-image-2",   # cloud-only mode (no local figure backend)
 }
 
 # H100 80GB: the photoreal stack co-resides (~70GB), so no memory-pressure downshift is needed.

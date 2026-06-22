@@ -15,6 +15,7 @@ const GEN_MODES: GenMode[] = [
   "controlnet",
   "reference",
   "video",
+  "figure",
 ];
 
 // Per-mode localStorage key, e.g. "figment.model.image.inpaint".
@@ -73,6 +74,7 @@ function emptyByMode(): ByMode {
     controlnet: null,
     reference: null,
     video: null,
+    figure: null,
   };
 }
 

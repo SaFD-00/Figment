@@ -13,8 +13,9 @@ class Mode(str, Enum):
     inpaint = "inpaint"
     edit = "edit"          # instruction edit (mask→inpaint, else high-denoise img2img)
     controlnet = "controlnet"
-    reference = "reference"  # style/look reference (Redux) + identity (InstantID/PuLID/IP-Adapter)
+    reference = "reference"  # style/look reference (Redux); subject/face via edit + reference image
     video = "video"          # NSFW text/image→video (Wan 2.2)
+    figure = "figure"        # cloud-only: structured figure → editable SVG/PPTX (FigGen)
 
 
 RefRole = Literal["style", "structure", "edit", "identity"]

@@ -66,7 +66,8 @@ export type GenMode =
   | "edit"
   | "controlnet"
   | "reference"
-  | "video";
+  | "video"
+  | "figure";
 
 export type ReferenceRole = "style" | "structure" | "edit" | "identity";
 

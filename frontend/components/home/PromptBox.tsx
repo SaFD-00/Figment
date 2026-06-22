@@ -22,6 +22,7 @@ const PLACEHOLDERS: Record<HomeMode, string> = {
   generate: "Describe the figure or image you want to create…",
   edit: "Upload an image, then describe how to change it…",
   reference: "Upload a reference, then describe what to make from it…",
+  figure: "Describe a diagram or figure — exported as editable SVG/PPTX (cloud)…",
 };
 
 export function PromptBox() {
@@ -55,6 +56,7 @@ export function PromptBox() {
   const genMode: GenMode = useMemo(() => {
     if (mode === "edit") return "img2img";
     if (mode === "reference") return "reference";
+    if (mode === "figure") return "figure";
     return "txt2img";
   }, [mode]);
 
