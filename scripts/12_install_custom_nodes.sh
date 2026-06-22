@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Install the CUDA-only ComfyUI custom nodes for the H100 photoreal stack — the identity / pose /
-# video / upscale / bg-remove nodes that 11_install_custom_nodes.sh deliberately skipped on arm64
-# (onnxruntime build friction). Run AFTER 10_install_comfyui.sh + 11_install_custom_nodes.sh.
+# Install the CUDA ComfyUI custom nodes for the H100 photoreal stack — identity / pose / upscale /
+# bg-remove — plus the GGUF loaders and controlnet preprocessors. This is the single custom-node
+# installer (no separate arm64 script). Wan 2.2 video uses ComfyUI's NATIVE core nodes
+# (WanImageToVideo / EmptyHunyuanLatentVideo / SaveAnimatedWEBP), so no WanVideoWrapper is required.
+# Run AFTER 10_install_comfyui.sh.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -37,8 +39,7 @@ clone https://github.com/balazik/ComfyUI-PuLID-Flux                ComfyUI-PuLID
 clone https://github.com/Fannovel16/comfyui_controlnet_aux         comfyui_controlnet_aux
 # Ultimate SD Upscale (reuses our own NSFW base)
 clone https://github.com/ssitu/ComfyUI_UltimateSDUpscale           ComfyUI_UltimateSDUpscale
-# Wan 2.2 video
-clone https://github.com/kijai/ComfyUI-WanVideoWrapper             ComfyUI-WanVideoWrapper
+# Wan 2.2 video uses ComfyUI's native core nodes — no WanVideoWrapper needed.
 # Background removal (BEN2/RMBG)
 clone https://github.com/1038lab/ComfyUI-RMBG                      ComfyUI-RMBG
 
@@ -46,4 +47,4 @@ clone https://github.com/1038lab/ComfyUI-RMBG                      ComfyUI-RMBG
 echo "── pip install onnxruntime-gpu insightface (CUDA face+pose deps)"
 uv pip install onnxruntime-gpu insightface || echo "⚠ onnxruntime-gpu/insightface install failed (non-fatal)"
 
-echo "✓ CUDA custom nodes installed (identity / DWPose / Wan video / USDU / RMBG)."
+echo "✓ CUDA custom nodes installed (identity / DWPose / USDU / RMBG / GGUF). Wan 2.2 = native core nodes."
