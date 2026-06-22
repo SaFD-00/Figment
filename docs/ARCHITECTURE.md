@@ -15,7 +15,7 @@ FastAPI backend (:8000)
         │ HTTP /api/chat            │ HTTP /prompt + WS /ws
         ▼                           ▼
    Ollama (:11434)            ComfyUI (:8188, CUDA, fp8/safetensors)
-   Qwen3-VL 8b (multimodal)   Chroma·LUSTIFY·FLUX-Fill·Qwen-Edit-AIO·Kontext·Redux·InstantID/IP-Adapter/PuLID·Wan2.2·ControlNet-Union·RealESRGAN
+   Qwen3-VL 8b (multimodal)   Chroma·LUSTIFY·FLUX-Fill·Qwen-Edit-AIO·Redux·Wan2.2-TI2V·ControlNet-Union·RealESRGAN
         └────────── H100 80GB VRAM (full photoreal stack co-resident) ──────────┘
                                   ▼ writes
          <repo>/AIStudio/ (models, comfyui, outputs, db.sqlite, logs)  ← single runtime home (git-ignored)
@@ -28,23 +28,30 @@ FastAPI backend (:8000)
   The chat LLM follows the UI model pick (`ChatRequest.llm_model`): `chat.py:_resolve_chat` routes a
   **local** LLM to its Ollama tag and a **cloud** LLM to OpenRouter (`openrouter_client.py`), degrading
   to the default Ollama model when no key is set — so model choice lives in the picker, not `.env`.
-- **Job execution** (`orchestrator/queue.py`): resolve model → `MemoryOrchestrator.ensure_ready_for`
-  (the image stack co-resides; only frees ComfyUI / unloads LLM under rare budget pressure) →
-  upload input images to ComfyUI → `builder.build()` →
-  connect `/ws` (sentinel) → `queue_prompt` → map progress to SSE → fetch result from `/history`+`/view`
-  → save asset + sidecar → `done`.
-- **Cloud path**: when the resolved image model is a cloud one, the job routes to the vendored
-  FigGen pipeline on **OpenRouter** (`engines/figure_pipeline.py`) — structured FigureSpec → editable
-  SVG/PPTX. Provider is unified on `OPENROUTER_API_KEY`; with no key it falls back to a mock provider.
+- **Job execution** (`orchestrator/queue.py`, `JobWorker._run`): resolve model → pick a
+  `GenerationEngine` (`engines/base.py`) via `_select_engine` → `engine.run(EngineContext)` →
+  `_persist` (one shared site: remove-bg for images → save asset + sidecars → `done`). The three engines:
+  - **local** (`engines/local_comfy.py`): `MemoryOrchestrator.ensure_ready_for` (the image stack
+    co-resides; frees ComfyUI / unloads LLM only under rare budget pressure) → upload inputs →
+    `builder.build()` → `/ws` (sentinel) → `queue_prompt` → progress→SSE → result from `/history`+`/view`.
+  - **cloud raster** (`engines/cloud_image.py`): OpenRouter image API → a plain PNG, for the normal
+    modes — interchangeable with local.
+  - **cloud figure** (`engines/figure.py`, `Mode.figure` only): the vendored FigGen pipeline →
+    structured FigureSpec → editable SVG/PPTX + preview PNG.
+  Provider is unified on `OPENROUTER_API_KEY`; no key → raster raises a clear error, figure falls back
+  to a mock provider.
 - **Region Redraw**: frontend exports a white-on-black mask at exact source dims → `POST /uploads`
-  (source + mask) → `POST /jobs {mode:inpaint}` → `build_inpaint_flux_fill` (or SDXL).
+  (source + mask) → `POST /jobs {mode:inpaint}` → `build_inpaint_flux_fill`.
 - **Toolbar one-shots**: `POST /assets/{id}/upscale|whitebg|removebg` (upscale via a tiny ComfyUI
   graph polled on `/history`; bg-removal via rembg on CPU).
 
 ## Why these choices
-- **ComfyUI** as the single engine: one backend covers txt2img/img2img/inpaint/edit/controlnet/redux/
-  identity/video/upscale; programmatic `/prompt`+`/ws`; CUDA fp8/bf16 safetensors are first-class
-  (GGUF retained only for FLUX-Fill/Kontext).
+- **One engine interface, three backends** (`engines/`): local ComfyUI, cloud raster (OpenRouter),
+  cloud figure (FigGen). The job worker selects by `(engine, mode)` and shares one persistence path —
+  so a cloud model is interchangeable with local for raster work, and figures are an explicit mode.
+- **ComfyUI** for local: one backend covers txt2img/img2img/inpaint/edit/controlnet/redux/video/
+  upscale; programmatic `/prompt`+`/ws`; CUDA fp8/bf16 safetensors are first-class (GGUF retained
+  only for FLUX-Fill).
 - **Programmatic graph builder** (not JSON+placeholder): type-safe LoRA chains, ref-image fan-out,
   and per-mode branching; validated against live `/object_info` at startup.
 - **SSE** (not WebSocket): generation progress is one-way server→client.
