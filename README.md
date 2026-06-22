@@ -45,6 +45,7 @@ backend/app/     FastAPI host: routers (chat·jobs·projects·assets·uploads·m
   comfy/ llm/ orchestrator/ services/ db/   (local engine + queue + storage)
 figure_engine/   vendored FigGen package (`figgen`): pipeline, schema, layout, render, vectorize
 AIStudio/        local runtime home (weights, ComfyUI, sqlite, outputs) — git-ignored
+                 └ symlink → /data/<user>/Figment/AIStudio (AGENTS.md: big artifacts on /data)
 ```
 
 ## Quickstart
@@ -59,7 +60,8 @@ cd backend && uv sync && uv run uvicorn app.main:app --port 8000
 cd frontend && pnpm install && pnpm dev    # http://localhost:3000
 ```
 
-Local models (optional, 24GB+ Apple Silicon): `scripts/10_install_comfyui.sh`,
+Local models (NVIDIA H100 80GB / CUDA): `scripts/00_bootstrap_dirs.sh` (creates the
+`/data/<user>/Figment/AIStudio` symlink per AGENTS.md), `scripts/10_install_comfyui.sh`,
 `scripts/20_download_models.sh`, `scripts/30_run_comfyui.sh`, `scripts/31_run_ollama.sh`.
 
 ## Verify

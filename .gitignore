@@ -16,6 +16,9 @@ out/
 tsconfig.tsbuildinfo
 
 # runtime home: models, ComfyUI install, SQLite DB, logs, generated outputs (multi-GB — never commit)
+# AIStudio is a symlink to /data/<user>/Figment/AIStudio (AGENTS.md storage rule); match both the
+# symlink itself (no trailing slash) and a real directory (trailing slash).
+/AIStudio
 /AIStudio/
 /comfyui/
 

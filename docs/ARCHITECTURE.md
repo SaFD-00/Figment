@@ -19,6 +19,7 @@ FastAPI backend (:8000)
         └────────── shared 24GB unified memory (one big model at a time) ──────────┘
                                   ▼ writes
          <repo>/AIStudio/ (models, comfyui, outputs, db.sqlite, logs)  ← single runtime home (git-ignored)
+           └ symlink → /data/<user>/Figment/AIStudio  (AGENTS.md: big artifacts live on /data, not root)
 ```
 
 ## Request flows
