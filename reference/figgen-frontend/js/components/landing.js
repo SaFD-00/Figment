@@ -3,7 +3,7 @@ import * as actions from "../actions.js";
 import * as api from "../api.js";
 import { store } from "../state.js";
 
-const MODEL_LABEL = "SeeDream 4.5"; // 이미지 모델(컴포저 라벨, figurelabs 'Nano Banana Pro' 자리)
+const MODEL_LABEL = "Gemini 3.1 Flash Image"; // 이미지 모델(컴포저 라벨, figurelabs 'Nano Banana Pro' 자리)
 
 export function mountLanding(el) {
   let palOpen = false;

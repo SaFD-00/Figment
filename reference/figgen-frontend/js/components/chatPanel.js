@@ -41,7 +41,7 @@ export function mountChatPanel(el) {
               <option value="mock" ${form.provider === "mock" ? "selected" : ""}>Mock</option>
               ${["openrouter", "openai", "auto"].map((p) => `<option value="${p}" ${form.provider === p ? "selected" : ""} ${p !== "auto" && !meta.providers.includes(p) ? "disabled" : ""}>${p}${p !== "auto" && !meta.providers.includes(p) ? "(키없음)" : ""}</option>`).join("")}
             </select>
-            ${planning ? `<span class="model-chip sm" title="이미지 모델">🍌 SeeDream 4.5</span>
+            ${planning ? `<span class="model-chip sm" title="이미지 모델">🍌 Gemini 3.1 Flash Image</span>
             <label class="mini-toggle" title="생성 전 웹검색 그라운딩"><input type="checkbox" id="opt-research" ${form.research ? "checked" : ""}> 리서치</label>` : ""}
             <button class="send-btn" id="send" ${running || chat.pending ? "disabled" : ""} title="보내기 (Enter)">
               ${chat.pending ? "…" : (editMode ? "수정 ▷" : "▷")}</button>
