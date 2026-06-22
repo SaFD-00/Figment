@@ -107,13 +107,13 @@ stage_video() {  # NSFW video (Wan 2.2): TI2V-5B (default) + T2V/I2V-A14B + umt5
      clip 5 "umt5_xxl_fp8_e4m3fn.safetensors"
   dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/vae/wan2.2_vae.safetensors"  vae 0.5
   # TI2V-5B (light, default video)
-  dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors"  video 10
+  dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors"  unet 10
   # T2V-A14B (MoE: high+low noise UNETs)
-  dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors" video 14
-  dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors"  video 14
+  dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors" unet 14
+  dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors"  unet 14
   # I2V-A14B (MoE: high+low noise UNETs)
-  dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors" video 14
-  dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors"  video 14
+  dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors" unet 14
+  dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors"  unet 14
   # lightx2v / Lightning 4-step distill LoRAs — A14B is a MoE, so a high- AND low-noise LoRA per task.
   dl Kijai/WanVideo_comfy  "LoRAs/Wan22_Lightx2v/Wan_2_2_I2V_A14B_HIGH_lightx2v_4step_lora_260412_rank_64_fp16.safetensors" \
      loras 0.63 "wan2.2_i2v_lightx2v_4step.safetensors"
