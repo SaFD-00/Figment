@@ -198,50 +198,15 @@ MODELS: dict[str, ModelDef] = {
         engine=ENGINE_CLOUD_OPENROUTER, kind="image", provider="openrouter",
         cloud_model_id="google/nano-banana-2",   # VERIFY slug
     ),
-    "seedream-4.5": ModelDef(
-        id="seedream-4.5", family="cloud", label="SeeDream 4.5 (cloud · BioRender-grade)",
-        vram_gb=0.0, supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.reference),
-        engine=ENGINE_CLOUD_OPENROUTER, kind="image", provider="openrouter",
-        cloud_model_id="bytedance-seed/seedream-4.5",
-        defaults={"aspect_ratio": "1:1", "image_size": "2K"},
-    ),
-    "flux2-max": ModelDef(
-        id="flux2-max", family="cloud", label="FLUX.2 Max (cloud · OpenRouter)",
-        vram_gb=0.0, supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.reference),
-        engine=ENGINE_CLOUD_OPENROUTER, kind="image", provider="openrouter",
-        cloud_model_id="black-forest-labs/flux.2-max",
-    ),
-    "flux2-pro": ModelDef(
-        id="flux2-pro", family="cloud", label="FLUX.2 Pro (cloud · OpenRouter)",
-        vram_gb=0.0, supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.reference),
-        engine=ENGINE_CLOUD_OPENROUTER, kind="image", provider="openrouter",
-        cloud_model_id="black-forest-labs/flux.2-pro",
-    ),
-    "flux2-flex": ModelDef(
-        id="flux2-flex", family="cloud", label="FLUX.2 Flex (cloud · OpenRouter)",
-        vram_gb=0.0, supports=(Mode.txt2img, Mode.img2img, Mode.edit, Mode.reference),
-        engine=ENGINE_CLOUD_OPENROUTER, kind="image", provider="openrouter",
-        cloud_model_id="black-forest-labs/flux.2-flex",
-    ),
 }
 
 # ── Chat / planner LLM models ───────────────────────────────────────────────
-# Mixed lineup: uncensored local text models (Qwen3.5) + multimodal VLMs. A `vision=True` entry
-# gates image-grounded prompt-enhance (the Ollama client converts OpenAI-style multimodal messages
-# into Ollama's native per-message `images` array; cloud forwards as-is). Non-vision picks fall back
-# to text-only enhance.
+# Vision-capable only: every chat/planner LLM here is multimodal (`vision=True`), so prompt-enhance
+# can always ground the rewrite in an uploaded edit/reference image. The Ollama client converts
+# OpenAI-style multimodal messages into Ollama's native per-message `images` array; cloud forwards
+# as-is. (Text-only LLMs were deliberately dropped — do not re-add; the role stays a multimodal LLM.)
 LLM_MODELS: dict[str, ModelDef] = {
-    "qwen-9b-local": ModelDef(
-        id="qwen-9b-local", family="ollama", label="Qwen3.5-9B Uncensored (local · Ollama)",
-        vram_gb=6.5, supports=(), engine=ENGINE_LOCAL_OLLAMA, kind="llm", provider="ollama",
-        cloud_model_id="hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
-    ),
-    "qwen-4b-local": ModelDef(
-        id="qwen-4b-local", family="ollama", label="Qwen3.5-4B Uncensored (local · Ollama, light)",
-        vram_gb=3.4, supports=(), engine=ENGINE_LOCAL_OLLAMA, kind="llm", provider="ollama",
-        cloud_model_id="hf.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
-    ),
-    # Local multimodal VLM — uncensored "thinking" model so local prompt-enhance / mask judgement
+    # Local multimodal LLM — uncensored "thinking" model so local prompt-enhance / mask judgement
     # can read images too.
     "qwen3-vl-local": ModelDef(
         id="qwen3-vl-local", family="ollama",
@@ -249,32 +214,7 @@ LLM_MODELS: dict[str, ModelDef] = {
         vram_gb=5.0, supports=(), engine=ENGINE_LOCAL_OLLAMA, kind="llm", provider="ollama",
         cloud_model_id="huihui_ai/qwen3-vl-abliterated:8b", vision=True,  # VERIFY Ollama tag
     ),
-    "gpt-oss-20b": ModelDef(
-        id="gpt-oss-20b", family="cloud", label="GPT-OSS 20B (cloud · OpenRouter, free)",
-        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
-        cloud_model_id="openai/gpt-oss-20b:free",
-    ),
-    "gpt-oss-120b": ModelDef(
-        id="gpt-oss-120b", family="cloud", label="GPT-OSS 120B (cloud · OpenRouter, free)",
-        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
-        cloud_model_id="openai/gpt-oss-120b:free",
-    ),
-    "qwen3-plus": ModelDef(
-        id="qwen3-plus", family="cloud", label="Qwen3.7 Plus (cloud · OpenRouter)",
-        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
-        cloud_model_id="qwen/qwen3.7-plus",
-    ),
-    "qwen3-flash": ModelDef(
-        id="qwen3-flash", family="cloud", label="Qwen3.6 Flash (cloud · OpenRouter)",
-        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
-        cloud_model_id="qwen/qwen3.6-flash",
-    ),
-    "qwen3-35b-a3b": ModelDef(
-        id="qwen3-35b-a3b", family="cloud", label="Qwen3.6 35B-A3B (cloud · OpenRouter)",
-        vram_gb=0.0, supports=(), engine=ENGINE_CLOUD_OPENROUTER, kind="llm", provider="openrouter",
-        cloud_model_id="qwen/qwen3.6-35b-a3b",
-    ),
-    # Cloud multimodal VLMs (OpenRouter) — any one serves chat + planner + vision-enhance.
+    # Cloud multimodal LLMs (OpenRouter) — any one serves chat + planner + vision-enhance.
     "gemini-2.5-flash": ModelDef(
         id="gemini-2.5-flash", family="cloud",
         label="Gemini 2.5 Flash (cloud · OpenRouter, multimodal)",

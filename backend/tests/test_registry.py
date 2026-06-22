@@ -17,7 +17,10 @@ from app.models_catalog.registry import (
 from app.schemas.genspec import ControlType, GenSpec, Mode
 
 LOCAL = {mid: m for mid, m in MODELS.items() if not is_cloud(m)}
-REMOVED_IDS = {"qwen-image", "z-image", "pony-v6", "qwen-edit"}  # anime-first / superseded
+REMOVED_IDS = {
+    "qwen-image", "z-image", "pony-v6", "qwen-edit",          # anime-first / superseded
+    "seedream-4.5", "flux2-max", "flux2-pro", "flux2-flex",   # dropped cloud image models
+}
 
 
 def _spec_ctx(build_ctx, model_id: str, mode: Mode):

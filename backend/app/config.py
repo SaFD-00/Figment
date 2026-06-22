@@ -30,14 +30,14 @@ class Settings(BaseSettings):
     backend_port: int = 8000
 
     # Fallback chat/planner LLM when nothing is selected (mirrors .env OLLAMA_LLM and what
-    # scripts/21_pull_ollama_models.sh pulls). The UI picker overrides this per turn; pick
-    # qwen3-vl-local for image-grounded enhance.
-    ollama_llm: str = "hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M"
+    # scripts/21_pull_ollama_models.sh pulls). The UI picker overrides this per turn. The chat/
+    # planner LLM lineup is vision-capable only, so the local default is the multimodal qwen3-vl.
+    ollama_llm: str = "huihui_ai/qwen3-vl-abliterated:8b"
 
     # Memory budget for a single NVIDIA H100 80GB (usable VRAM after CUDA/driver overhead).
     # The photoreal stack co-resides (~70GB), so this rarely triggers a free/unload.
     vram_budget_gb: float = 78.0
-    llm_resident_gb: float = 6.5
+    llm_resident_gb: float = 5.0
 
     @property
     def outputs_dir(self) -> Path:
