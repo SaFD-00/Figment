@@ -108,14 +108,17 @@ class JobWorker:
         # 4) execute over ws
         out_bytes = await self._execute(job_id, result, spec)
 
-        # 5) optional post-steps (upscale, bg-remove) — light, in pipeline order
-        if spec.remove_bg:
-            out_bytes = await asyncio.to_thread(rembg_service.remove_bg, out_bytes, False)
-
-        # 6) persist
-        path, w, h = storage.save_image(job["project_id"], out_bytes, "output", spec.model_dump())
+        # 5) persist — video (Wan) saves an animated webp; images may get bg-removed first
+        if result.is_video:
+            path, w, h = storage.save_video(job["project_id"], out_bytes, "output", "webp", spec.model_dump())
+            meta = {"job": job_id, "video": True}
+        else:
+            if spec.remove_bg:
+                out_bytes = await asyncio.to_thread(rembg_service.remove_bg, out_bytes, False)
+            path, w, h = storage.save_image(job["project_id"], out_bytes, "output", spec.model_dump())
+            meta = {"job": job_id}
         asset = await repo.create_asset(job["project_id"], "output", path, w, h,
-                                        parent_id=spec.source_asset, meta={"job": job_id})
+                                        parent_id=spec.source_asset, meta=meta)
         await repo.touch_project(job["project_id"], cover_asset=asset["id"])
         await repo.update_job(job_id, status="done", progress=1.0, result_asset=asset["id"])
         self._publish(ProgressEvent(type="done", job_id=job_id, progress=1.0, result_asset=asset["id"]))

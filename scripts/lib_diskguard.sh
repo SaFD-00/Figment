@@ -5,8 +5,11 @@
 MIN_FREE_GB="${MIN_FREE_GB:-15}"
 
 free_gb() {
-  # Free GB on the volume that holds $HOME
-  df -g "$HOME" | awk 'NR==2 {print $4}'
+  # Free GB on the volume that actually holds the downloads (AISTUDIO_HOME, which is normally a
+  # symlink to /data) — NOT the small root volume. Portable across Linux/macOS via POSIX `df -Pk`.
+  local target="${AISTUDIO_HOME:-$HOME}"
+  [ -e "$target" ] || target="$HOME"
+  df -Pk "$target" | awk 'NR==2 {print int($4/1048576)}'
 }
 
 diskguard() {

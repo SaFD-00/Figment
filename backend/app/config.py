@@ -4,9 +4,9 @@ All runtime artifacts (models, ComfyUI, SQLite DB, logs, generated outputs) live
 AISTUDIO_HOME, which defaults to the repo's own `AIStudio/` folder so everything is
 self-contained in the project. Override via AISTUDIO_HOME in .env.
 
-NOTE: this repo lives inside Google Drive; keeping AIStudio/ here means Drive will sync the
-model weights and DB. That is the user's chosen layout — see .gitignore (AIStudio/ is ignored
-from git) and the README note about excluding it from Drive sync if churn becomes an issue.
+NOTE: per AGENTS.md, <repo>/AIStudio is normally a SYMLINK to /data/<user>/Figment/AIStudio so
+the multi-GB weights/DB land on the big /data volume, not the (small) root volume. Code paths are
+unchanged by the symlink. See .gitignore (AIStudio is ignored) and scripts/00_bootstrap_dirs.sh.
 """
 from __future__ import annotations
 
@@ -32,9 +32,10 @@ class Settings(BaseSettings):
     ollama_llm: str = "hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M"
     ollama_llm_fallback: str = "hf.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive:Q4_K_M"
 
-    # Memory budget for the 24GB M4 Pro (usable unified memory for ML after OS overhead)
-    vram_budget_gb: float = 19.0
-    llm_resident_gb: float = 5.0
+    # Memory budget for a single NVIDIA H100 80GB (usable VRAM after CUDA/driver overhead).
+    # The photoreal stack co-resides (~70GB), so this rarely triggers a free/unload.
+    vram_budget_gb: float = 78.0
+    llm_resident_gb: float = 6.5
 
     @property
     def outputs_dir(self) -> Path:

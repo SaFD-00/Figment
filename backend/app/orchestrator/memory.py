@@ -1,8 +1,9 @@
-"""Memory orchestrator for the 24GB unified-memory ceiling.
+"""Memory orchestrator for the H100 80GB VRAM budget.
 
-Enforces "one big model at a time": frees ComfyUI's resident model when the family changes,
-unloads the chat LLM before a heavy generation if they wouldn't co-fit, and downshifts to a
-lighter equivalent model when even a single model would exceed budget.
+On the H100 the whole photoreal stack co-resides (~70GB), so we do NOT serialise one-big-model:
+ComfyUI is freed / the chat LLM is unloaded ONLY when keeping the resident family plus the next
+model (plus the LLM) would actually exceed budget — which, at 78GB, almost never happens. The
+downshift path stays for low-budget machines but is a no-op while LIGHTER_EQUIVALENT is empty.
 """
 from __future__ import annotations
 
@@ -45,11 +46,16 @@ class MemoryOrchestrator:
     async def ensure_ready_for(self, model: ModelDef) -> ModelDef:
         model = self.downshift(model)
 
-        # 1) Different big model resident in ComfyUI? free it.
+        # 1) Different family resident AND co-residing them would exceed budget? free the old one.
+        #    On the 78GB H100 the families co-fit, so this is a no-op; it only kicks in under pressure.
         if self.ledger.comfy_family not in (None, model.family):
-            log.info("freeing ComfyUI (family %s -> %s)", self.ledger.comfy_family, model.family)
-            await self.comfy.free(unload_models=True, free_memory=True)
-            self.ledger.comfy_family = None
+            llm = self.llm_gb if self.ledger.llm_loaded else 0.0
+            would_exceed = MODELS_resident_gb(self.ledger.comfy_family) + model.vram_gb + llm > self.budget
+            if would_exceed:
+                log.info("freeing ComfyUI (family %s -> %s, over %.0fGB)",
+                         self.ledger.comfy_family, model.family, self.budget)
+                await self.comfy.free(unload_models=True, free_memory=True)
+                self.ledger.comfy_family = None
 
         # 2) model + LLM over budget? unload the LLM.
         if self.ledger.llm_loaded and (model.vram_gb + self.llm_gb) > self.budget:
@@ -62,10 +68,13 @@ class MemoryOrchestrator:
         return model
 
     async def after_job(self, next_family: str | None = None) -> None:
-        """Free ComfyUI between heavy jobs of different families; re-warm LLM when it fits."""
+        """Keep models warm for co-residency; only free under budget pressure, re-warm LLM when it fits."""
         if next_family is not None and next_family != self.ledger.comfy_family:
-            await self.comfy.free(unload_models=True)
-            self.ledger.comfy_family = None
+            would_exceed = (MODELS_resident_gb(self.ledger.comfy_family)
+                            + MODELS_resident_gb(next_family) + self.llm_gb) > self.budget
+            if would_exceed:
+                await self.comfy.free(unload_models=True)
+                self.ledger.comfy_family = None
         # Re-warm the LLM when nothing huge is resident.
         resident = MODELS_resident_gb(self.ledger.comfy_family)
         if not self.ledger.llm_loaded and (resident + self.llm_gb) <= self.budget:

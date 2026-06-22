@@ -12,7 +12,9 @@ REQUIRED_NODES: dict[str, list[str]] = {
         "CheckpointLoaderSimple", "CLIPTextEncode", "EmptyLatentImage",
         "KSampler", "VAEDecode", "VAEEncode", "SaveImage", "LoadImage", "LoraLoader",
     ],
-    "flux/chroma gguf": ["UnetLoaderGGUF", "DualCLIPLoaderGGUF", "VAELoader", "EmptySD3LatentImage", "FluxGuidance"],
+    # Chroma/Redux default to native CUDA loaders (fp8 safetensors); these are core ComfyUI.
+    "chroma/flux native": ["UNETLoader", "CLIPLoader", "DualCLIPLoader", "VAELoader",
+                           "EmptySD3LatentImage", "FluxGuidance"],
     "inpaint": ["VAEEncodeForInpaint", "ImageToMask", "InpaintModelConditioning"],
     "reference edit": ["ReferenceLatent"],
     "controlnet": ["ControlNetLoader", "ControlNetApplyAdvanced"],
@@ -21,9 +23,19 @@ REQUIRED_NODES: dict[str, list[str]] = {
 }
 
 # Nodes that are nice-to-have; a missing one disables one feature but shouldn't block startup.
+# GGUF loaders are now optional (only flux-fill/kontext use them); identity/pose/video/USDU come
+# from custom nodes (scripts/12_install_custom_nodes.sh) and degrade gracefully if absent.
 OPTIONAL_NODES = {
-    "CLIPLoaderGGUF", "TextEncodeQwenImageEdit", "StyleModelApply",
-    "CannyEdgePreprocessor", "DepthAnythingV2Preprocessor", "ScribblePreprocessor", "LineArtPreprocessor",
+    "UnetLoaderGGUF", "DualCLIPLoaderGGUF", "CLIPLoaderGGUF",
+    "TextEncodeQwenImageEdit", "StyleModelApply",
+    "CannyEdgePreprocessor", "DepthAnythingV2Preprocessor", "ScribblePreprocessor",
+    "LineArtPreprocessor", "DWPreprocessor",
+    # identity / face
+    "InstantIDModelLoader", "InstantIDFaceAnalysis", "ApplyInstantID",
+    "IPAdapterUnifiedLoaderFaceID", "IPAdapterFaceID",
+    "PulidFluxModelLoader", "PulidFluxEvaClipLoader", "PulidFluxInsightFaceLoader", "ApplyPulidFlux",
+    # upscale / video
+    "UltimateSDUpscale", "WanImageToVideo", "EmptyHunyuanLatentVideo", "SaveAnimatedWEBP",
 }
 
 

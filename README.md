@@ -27,7 +27,7 @@ in the composer (home prompt box and the editor chat), grouped Local / Cloud. **
 config in `.env`** — it only holds API keys, service URLs, and fallback defaults.
 - **Cloud image** (OpenRouter): GPT Image 2, Nano Banana 2, SeeDream 4.5, FLUX.2 Max/Pro/Flex
 - **Cloud LLM** (OpenRouter): GPT-OSS 20B/120B (free), Qwen3.7 Plus, Qwen3.6 Flash, Qwen3.6 35B-A3B
-- **Local** (ComfyUI/Ollama): Qwen-Image 2512, Chroma, Z-Image, Pony, FLUX Fill/Kontext/Redux, Qwen-Edit, Qwen3.5 …
+- **Local** (ComfyUI/Ollama): Chroma 1-HD, LUSTIFY SDXL, FLUX Fill/Kontext/Redux, Qwen-Edit AIO, InstantID/IP-Adapter/PuLID, video (Wan 2.2), Qwen3.5 …
 
 The selected model drives the whole pipeline: image generation, and the **chat/planner LLM follows
 your pick too** — a local LLM streams from **Ollama**, a cloud LLM from **OpenRouter**. Cloud image

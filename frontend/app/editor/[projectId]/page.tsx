@@ -195,7 +195,7 @@ function EditorPageInner() {
         );
         const spec = defaultGenSpec();
         spec.mode = "edit";
-        spec.model = "qwen-edit";
+        spec.model = "qwen-edit-aio";
         spec.prompt = prompt;
         spec.source_asset = sourceAsset.id;
         spec.width = currentAsset.width || spec.width;

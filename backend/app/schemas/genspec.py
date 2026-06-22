@@ -13,11 +13,12 @@ class Mode(str, Enum):
     inpaint = "inpaint"
     edit = "edit"          # instruction edit / reference-edit (Kontext, Qwen-Edit)
     controlnet = "controlnet"
-    reference = "reference"  # style/look reference (Redux)
+    reference = "reference"  # style/look reference (Redux) + identity (InstantID/PuLID/IP-Adapter)
+    video = "video"          # NSFW text/image→video (Wan 2.2)
 
 
 RefRole = Literal["style", "structure", "edit", "identity"]
-ControlType = Literal["canny", "depth", "scribble", "lineart"]
+ControlType = Literal["canny", "depth", "scribble", "lineart", "pose"]
 
 # Max reference images per request. Mirror in frontend/lib/constants.ts — keep in sync.
 MAX_REFERENCE_IMAGES = 6
@@ -66,6 +67,10 @@ class GenSpec(BaseModel):
     # LoRAs (NSFW finetunes etc.)
     loras: list[LoRA] = Field(default_factory=list)
 
+    # video (Wan 2.2): clip length in frames + fps; ignored by image modes
+    video_frames: int = Field(81, ge=9, le=241)
+    video_fps: int = Field(16, ge=8, le=30)
+
     # chained post-steps
     upscale: bool = False
     remove_bg: bool = False
@@ -73,8 +78,8 @@ class GenSpec(BaseModel):
     @field_validator("width", "height")
     @classmethod
     def _bounds(cls, v: int) -> int:
-        if not (256 <= v <= 1536):
-            raise ValueError("width/height must be in [256, 1536] to fit 24GB")
+        if not (256 <= v <= 2048):
+            raise ValueError("width/height must be in [256, 2048]")
         return v
 
     @field_validator("reference_images")

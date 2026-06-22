@@ -39,7 +39,7 @@ function buildSpec(
     );
   } else if (subMode === "structure") {
     spec.mode = "controlnet";
-    spec.model = "pony-v6";
+    spec.model = "lustify";
     spec.controlnet_type = "canny";
     spec.reference_images = assetIds.map(
       (id): ReferenceImage => ({ asset: id, role: "structure", strength: 0.8 }),
