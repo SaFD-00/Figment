@@ -48,19 +48,6 @@ export const CanvasStage = forwardRef<CanvasStageHandle>(
     const maskMode = useEditorStore((s) => s.maskMode);
     const brushSize = useEditorStore((s) => s.brushSize);
     const eraser = useEditorStore((s) => s.eraser);
-    const initialPrompt = useEditorStore((s) => s.initialPrompt);
-
-    // The originating prompt, pinned to the left of the canvas while you chat/edit.
-    const promptCard = initialPrompt ? (
-      <div className="pointer-events-auto absolute left-3 top-3 z-20 max-w-[260px] rounded-lg border border-line bg-panel/90 px-3 py-2 shadow-soft">
-        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
-          원본 프롬프트
-        </div>
-        <p className="max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-snug text-ink">
-          {initialPrompt}
-        </p>
-      </div>
-    ) : null;
 
     // Observe container size for responsive fit.
     useLayoutEffect(() => {
@@ -169,7 +156,6 @@ export const CanvasStage = forwardRef<CanvasStageHandle>(
           ref={containerRef}
           className="relative flex h-full w-full items-center justify-center text-sm text-muted"
         >
-          {promptCard}
           No image yet — generate one to begin.
         </div>
       );
@@ -180,7 +166,6 @@ export const CanvasStage = forwardRef<CanvasStageHandle>(
         ref={containerRef}
         className="relative flex h-full w-full items-center justify-center overflow-hidden"
       >
-        {promptCard}
         {displayW > 0 && displayH > 0 && img && (
           <div
             className="relative shadow-soft"

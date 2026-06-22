@@ -1,39 +1,34 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ModeTabs, type HomeMode } from "./ModeTabs";
 import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
-import { ModelPillRow } from "../models/ModelPicker";
+import { ModelPill } from "../models/ModelPicker";
 import { useModelsStore } from "../../lib/models";
+import { useEditorStore } from "../../lib/store";
 import {
-  createJob,
   createProject,
   enhancePrompt,
   fileToDataUrl,
   uploadFile,
 } from "../../lib/api";
-import { defaultGenSpec, type GenMode } from "../../lib/types";
-import { refCap } from "../../lib/constants";
+import { MAX_REFERENCE_IMAGES } from "../../lib/constants";
 import { firstWords } from "../../lib/format";
 
-const PLACEHOLDERS: Record<HomeMode, string> = {
-  generate: "Describe the figure or image you want to create…",
-  edit: "Upload an image, then describe how to change it…",
-  reference: "Upload a reference, then describe what to make from it…",
-  figure: "Describe a diagram or figure — exported as editable SVG/PPTX (cloud)…",
-};
+// Single entry point: the user types a prompt and (optionally) attaches image(s). There is no mode
+// selection here — the chat LLM in the editor routes the request to the right mode (generate / edit /
+// reference / figure), asking a clarifying question first if it's ambiguous. Submitting just stages
+// the prompt + uploads and hands off to the editor, where the first chat turn drives generation.
+const PLACEHOLDER =
+  "Describe the figure or image you want — or attach an image to edit or use as a reference…";
 
 export function PromptBox() {
   const router = useRouter();
-  const [mode, setMode] = useState<HomeMode>("generate");
   const [prompt, setPrompt] = useState("");
   const getImageModelForMode = useModelsStore((s) => s.getImageModelForMode);
-  // Subscribe to the resolved Model for reference mode so the cap reacts to model switches.
-  const refModel = useModelsStore((s) => s.selectedImageForMode("reference"));
   const selectedLlmId = useModelsStore((s) => s.selectedLlmId);
-  const selectedLlm = useModelsStore((s) => s.selectedLlm);
+  const setPendingStart = useEditorStore((s) => s.setPendingStart);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
@@ -42,58 +37,35 @@ export function PromptBox() {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const showDropzone = mode === "edit" || mode === "reference";
-  // Edit consumes a single source image; reference accepts up to the selected model's cap
-  // (local qwen-edit → 3, cloud → 6).
-  const isLocalRef = mode === "reference" && refModel?.engine === "local-comfy";
-  const maxFiles = mode === "reference" ? refCap(refModel) : 1;
+  const maxFiles = MAX_REFERENCE_IMAGES;
 
-  // Switching to a lower-cap model (e.g. cloud → local) trims any now-excess uploads.
+  // Trim any now-excess uploads if the cap ever shrinks (defensive; cap is currently constant).
   useEffect(() => {
     setFiles((prev) => (prev.length > maxFiles ? prev.slice(0, maxFiles) : prev));
   }, [maxFiles]);
 
-  const genMode: GenMode = useMemo(() => {
-    if (mode === "edit") return "img2img";
-    if (mode === "reference") return "reference";
-    if (mode === "figure") return "figure";
-    return "txt2img";
-  }, [mode]);
-
-  async function handleGenerate() {
+  async function handleStart() {
     if (busy) return;
-    if (!prompt.trim()) {
-      setError("Enter a prompt first.");
-      return;
-    }
-    if (showDropzone && files.length === 0) {
-      setError("Upload an image first.");
+    if (!prompt.trim() && files.length === 0) {
+      setError("Enter a prompt or attach an image first.");
       return;
     }
     setError(null);
     setBusy(true);
     try {
-      const project = await createProject(firstWords(prompt));
+      const project = await createProject(firstWords(prompt) || "Untitled");
 
-      const spec = defaultGenSpec();
-      spec.mode = genMode;
-      spec.model = getImageModelForMode(genMode);
-      spec.llm_model = selectedLlmId || null;
-      spec.prompt = prompt.trim();
-
-      if (mode === "edit" && files[0]) {
-        const asset = await uploadFile(project.id, "source", files[0], files[0].name);
-        spec.source_asset = asset.id;
-      } else if (mode === "reference") {
-        spec.reference_images = [];
-        for (const f of files) {
-          const a = await uploadFile(project.id, "reference", f, f.name);
-          spec.reference_images.push({ asset: a.id, role: "style", strength: 0.8 });
-        }
+      // Upload every attachment as a neutral "reference" asset (a valid upload kind). The backend
+      // binds these ids to source_asset vs reference_images based on the mode the LLM routes to.
+      const attachments: { asset: string }[] = [];
+      for (const f of files) {
+        const a = await uploadFile(project.id, "reference", f, f.name);
+        attachments.push({ asset: a.id });
       }
 
-      const job = await createJob(project.id, spec);
-      router.push(`/editor/${project.id}?job=${job.id}`);
+      // Hand off to the editor; ChatPanel auto-sends this as the first chat turn (which routes mode).
+      setPendingStart({ prompt: prompt.trim(), attachments });
+      router.push(`/editor/${project.id}`);
     } catch (e) {
       setError((e as Error)?.message ?? "Something went wrong.");
       setBusy(false);
@@ -110,15 +82,12 @@ export function PromptBox() {
     setError(null);
     setEnhancing(true);
     try {
-      // Edit/reference modes feed the uploaded image to a vision LLM so it can ground the rewrite;
-      // first image only (matches the reference/edit generation convention).
-      const image =
-        showDropzone && files[0] && selectedLlm()?.vision
-          ? await fileToDataUrl(files[0])
-          : null;
+      // All chat LLMs are vision-capable: if an image is attached, feed the first one so the rewrite
+      // is grounded in what it shows. Mode is unknown here, so use the txt2img model for the style hint.
+      const image = files[0] ? await fileToDataUrl(files[0]) : null;
       const { prompt: enhanced } = await enhancePrompt(text, {
         llmModel: selectedLlmId,
-        imageModel: getImageModelForMode(genMode),
+        imageModel: getImageModelForMode("txt2img"),
         instruction: enhanceNote.trim() || null,
         image,
       });
@@ -150,10 +119,6 @@ export function PromptBox() {
 
   return (
     <div className="w-full">
-      <div className="mb-4 flex justify-center">
-        <ModeTabs mode={mode} onChange={(m) => { setMode(m); setFiles([]); setError(null); }} />
-      </div>
-
       <div className="rounded-2xl border border-line bg-panel p-3 shadow-soft">
         <textarea
           value={prompt}
@@ -161,65 +126,58 @@ export function PromptBox() {
             setPrompt(e.target.value);
             if (prevPrompt !== null) setPrevPrompt(null); // editing drops the undo offer
           }}
-          placeholder={PLACEHOLDERS[mode]}
+          placeholder={PLACEHOLDER}
           rows={4}
           onKeyDown={(e) => {
             if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
               e.preventDefault();
-              void handleGenerate();
+              void handleStart();
             }
           }}
           className="w-full resize-none bg-transparent px-2 py-1.5 text-base text-ink placeholder:text-muted focus:outline-none"
         />
 
-        {showDropzone && (
-          <div className="px-2 pb-2">
-            {files.length > 0 && (
-              <ul className="mb-2 flex flex-col gap-1">
-                {files.map((f, i) => (
-                  <li
-                    key={`${f.name}-${i}`}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-line bg-white px-3 py-1.5 text-sm"
+        <div className="px-2 pb-2">
+          {files.length > 0 && (
+            <ul className="mb-2 flex flex-col gap-1">
+              {files.map((f, i) => (
+                <li
+                  key={`${f.name}-${i}`}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-line bg-white px-3 py-1.5 text-sm"
+                >
+                  <span className="truncate font-medium text-ink">{f.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(i)}
+                    className="shrink-0 text-muted hover:text-red-600"
+                    aria-label={`Remove ${f.name}`}
                   >
-                    <span className="truncate font-medium text-ink">{f.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(i)}
-                      className="shrink-0 text-muted hover:text-red-600"
-                      aria-label={`Remove ${f.name}`}
-                    >
-                      ✕
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {files.length < maxFiles && (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-zinc-50 py-4 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
-              >
-                {mode === "reference"
-                  ? `Click to add a reference (${files.length}/${maxFiles})`
-                  : "Click to upload an image"}
-              </button>
-            )}
-            {isLocalRef && (
-              <p className="mt-2 px-1 text-xs text-muted">
-                Local model uses up to {maxFiles} reference images.
-              </p>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple={mode === "reference"}
-              className="hidden"
-              onChange={onPickFile}
-            />
-          </div>
-        )}
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {files.length < maxFiles && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-zinc-50 py-4 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
+            >
+              {files.length > 0
+                ? `Add another image (${files.length}/${maxFiles})`
+                : "Optionally attach an image to edit or reference"}
+            </button>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={onPickFile}
+          />
+        </div>
 
         <div className="border-t border-line px-2 pt-2">
           <input
@@ -229,15 +187,15 @@ export function PromptBox() {
             placeholder="How to enhance (optional) — e.g. more cinematic, neon lighting"
             className="w-full bg-transparent px-1 py-1 text-sm text-ink placeholder:text-muted focus:outline-none"
           />
-          {showDropzone && files.length > 0 && selectedLlm()?.vision && (
+          {files.length > 0 && (
             <p className="px-1 pb-1 text-xs text-muted">
-              🖼 your uploaded image will be sent to the LLM
+              🖼 your attached image will be sent to the LLM
             </p>
           )}
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-line px-2 pt-3">
-          <ModelPillRow mode={genMode} className="flex min-w-0 flex-wrap items-center gap-2" />
+          <ModelPill kind="llm" />
 
           <div className="flex shrink-0 items-center gap-2">
             {prevPrompt !== null && (
@@ -264,7 +222,7 @@ export function PromptBox() {
             <Button
               variant="primary"
               size="md"
-              onClick={() => void handleGenerate()}
+              onClick={() => void handleStart()}
               disabled={busy || enhancing}
             >
               {busy && <Spinner />}
@@ -278,7 +236,7 @@ export function PromptBox() {
         <p className="mt-3 text-center text-sm text-red-600">{error}</p>
       )}
       <p className="mt-3 text-center text-xs text-muted">
-        Tip: press ⌘/Ctrl + Enter to generate.
+        Tip: press ⌘/Ctrl + Enter to start. The assistant picks the right mode — and asks if it's unsure.
       </p>
     </div>
   );

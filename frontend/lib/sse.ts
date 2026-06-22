@@ -59,11 +59,16 @@ function parseSSE(buffer: string): [SSEEvent[], string] {
   return [events, remainder];
 }
 
+export interface ChatAttachment {
+  asset: string;
+  hint?: "source" | "reference";
+}
+
 export function streamChat(
   projectId: string,
   message: string,
   handlers: ChatHandlers,
-  opts?: { llmModel?: string | null },
+  opts?: { llmModel?: string | null; attachments?: ChatAttachment[] },
 ): ChatStreamControl {
   const controller = new AbortController();
 
@@ -79,6 +84,7 @@ export function streamChat(
           project_id: projectId,
           message,
           llm_model: opts?.llmModel ?? null,
+          attachments: opts?.attachments ?? null,
         }),
         signal: controller.signal,
       });

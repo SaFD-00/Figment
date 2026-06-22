@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { assetFileUrl, enhancePrompt, getMessages } from "../../lib/api";
 import { hideBrokenImage } from "../../lib/img";
-import { streamChat } from "../../lib/sse";
+import { streamChat, type ChatAttachment } from "../../lib/sse";
 import { useEditorStore } from "../../lib/store";
 import { useModelsStore } from "../../lib/models";
 import { useJobRunner } from "../../lib/useJob";
@@ -28,6 +28,7 @@ interface Props {
 
 export function ChatPanel({ projectId, onRedraw }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messagesLoaded, setMessagesLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
@@ -38,7 +39,8 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
   const maskMode = useEditorStore((s) => s.maskMode);
   const chatGenSpec = useEditorStore((s) => s.chatGenSpec);
   const setChatGenSpec = useEditorStore((s) => s.setChatGenSpec);
-  const setInitialPrompt = useEditorStore((s) => s.setInitialPrompt);
+  const pendingStart = useEditorStore((s) => s.pendingStart);
+  const clearPendingStart = useEditorStore((s) => s.clearPendingStart);
   const activeJob = useEditorStore((s) => s.activeJob);
   const getImageModelForMode = useModelsStore((s) => s.getImageModelForMode);
   const selectedLlmId = useModelsStore((s) => s.selectedLlmId);
@@ -49,6 +51,8 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
   const [steps, setSteps] = useState<string>("");
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Latch so the home→editor auto-start fires exactly once (also survives StrictMode double-mount).
+  const autoStartedRef = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -56,12 +60,11 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
       .then((m) => {
         if (!alive) return;
         setMessages(m);
-        // Fallback for projects opened without ?job= : pin the first user message.
-        const firstUser = m.find((msg) => msg.role === "user");
-        if (firstUser) setInitialPrompt(firstUser.content);
+        setMessagesLoaded(true);
       })
       .catch(() => {
-        /* none yet */
+        if (!alive) return;
+        setMessagesLoaded(true);
       });
     return () => {
       alive = false;
@@ -72,18 +75,18 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, assistantDraft]);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const text = input.trim();
-    if (!text) return;
+  // Apply the user's per-mode image pick over the LLM's suggestion, then start the job.
+  // getImageModelForMode already returns a model compatible with this spec's mode, so it's safe.
+  async function startSpec(spec: GenSpec) {
+    const picked = getImageModelForMode(spec.mode);
+    const finalSpec: GenSpec = picked ? { ...spec, model: picked } : spec;
+    setChatGenSpec(null);
+    await run(projectId, finalSpec, { pushUndo: true });
+  }
 
-    // In mask mode, the input drives a region redraw instead of chat.
-    if (maskMode) {
-      onRedraw(text);
-      setInput("");
-      return;
-    }
-
+  // One chat turn: stream the LLM reply, route the mode, then either auto-run (first turn from the
+  // home composer) or surface the "Generate this" confirm button (manual editor turns).
+  function runChatTurn(text: string, attachments: ChatAttachment[], autoRun: boolean) {
     if (streaming) return;
     setPendingError(null);
     setChatGenSpec(null);
@@ -97,45 +100,86 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
       created_at: new Date().toISOString(),
     };
     setMessages((m) => [...m, userMsg]);
-    setInput("");
     setStreaming(true);
     setAssistantDraft("");
 
     let acc = "";
-    streamChat(projectId, text, {
-      onDelta: (t) => {
-        acc += t;
-        setAssistantDraft(acc);
+    streamChat(
+      projectId,
+      text,
+      {
+        onDelta: (t) => {
+          acc += t;
+          setAssistantDraft(acc);
+        },
+        onGenSpec: (spec) => {
+          if (autoRun) {
+            // Confident first-turn routing → generate immediately (preserves the one-click feel).
+            void startSpec(spec).catch((e) =>
+              setPendingError((e as Error)?.message ?? "Failed to start job."),
+            );
+          } else {
+            setChatGenSpec(spec);
+            setSeed(spec.seed != null ? String(spec.seed) : "");
+            setSteps(spec.steps != null ? String(spec.steps) : "");
+          }
+        },
+        onGenSpecError: (err) => {
+          setPendingError(err.error || "Could not build a generation spec.");
+        },
+        onDone: () => {
+          setStreaming(false);
+          setMessages((m) => [
+            ...m,
+            {
+              id: `local-a-${Date.now()}`,
+              project_id: projectId,
+              role: "assistant",
+              content: acc,
+              created_at: new Date().toISOString(),
+            },
+          ]);
+          setAssistantDraft("");
+        },
+        onError: (err) => {
+          setStreaming(false);
+          setPendingError(err.error);
+          setAssistantDraft("");
+        },
       },
-      onGenSpec: (spec) => {
-        setChatGenSpec(spec);
-        setSeed(spec.seed != null ? String(spec.seed) : "");
-        setSteps(spec.steps != null ? String(spec.steps) : "");
-      },
-      onGenSpecError: (err) => {
-        setPendingError(err.error || "Could not build a generation spec.");
-      },
-      onDone: () => {
-        setStreaming(false);
-        setMessages((m) => [
-          ...m,
-          {
-            id: `local-a-${Date.now()}`,
-            project_id: projectId,
-            role: "assistant",
-            content: acc,
-            created_at: new Date().toISOString(),
-          },
-        ]);
-        setAssistantDraft("");
-      },
-      onError: (err) => {
-        setStreaming(false);
-        setPendingError(err.error);
-        setAssistantDraft("");
-      },
-    }, { llmModel: selectedLlmId });
+      { llmModel: selectedLlmId, attachments },
+    );
   }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text) return;
+
+    // In mask mode, the input drives a region redraw instead of chat.
+    if (maskMode) {
+      onRedraw(text);
+      setInput("");
+      return;
+    }
+
+    setInput("");
+    // Manual editor turns are text-only and use the confirm button (autoRun = false).
+    runChatTurn(text, [], false);
+  }
+
+  // Home→editor handoff: once messages have loaded and the project is empty, auto-send the prompt
+  // (and any uploads) the user started with. This makes the initial prompt the first chat message
+  // and triggers LLM routing; a confident route auto-generates, an ambiguous one asks in chat.
+  useEffect(() => {
+    if (!messagesLoaded || autoStartedRef.current) return;
+    if (!pendingStart || messages.length > 0) return;
+    autoStartedRef.current = true;
+    const { prompt: startPrompt, attachments } = pendingStart;
+    clearPendingStart();
+    runChatTurn(startPrompt, attachments, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messagesLoaded]);
 
   async function handleEnhance() {
     if (enhancing || streaming) return;
@@ -170,15 +214,8 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
       seed: seed.trim() === "" ? null : Number(seed),
       steps: steps.trim() === "" ? null : Number(steps),
     };
-    // The user's per-mode image pick wins over the LLM's suggestion. getImageModelForMode
-    // already returns a model compatible with this spec's mode, so it's always safe to apply.
-    const picked = getImageModelForMode(spec.mode);
-    if (picked) {
-      spec.model = picked;
-    }
     try {
-      setChatGenSpec(null);
-      await run(projectId, spec, { pushUndo: true });
+      await startSpec(spec);
     } catch (e) {
       setPendingError((e as Error)?.message ?? "Failed to start job.");
     }

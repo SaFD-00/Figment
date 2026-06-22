@@ -11,12 +11,11 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import {
   assetExportUrl,
   assetFileUrl,
-  getJob,
   getProject,
   getProjectAssets,
   upscaleAsset,
@@ -55,8 +54,6 @@ const CanvasStage = dynamic(
 function EditorPageInner() {
   const params = useParams<{ projectId: string }>();
   const projectId = params.projectId;
-  const searchParams = useSearchParams();
-  const initialJob = searchParams.get("job");
 
   const canvasRef = useRef<CanvasStageHandle>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -68,11 +65,10 @@ function EditorPageInner() {
   const setCurrentProjectId = useEditorStore((s) => s.setCurrentProjectId);
   const maskMode = useEditorStore((s) => s.maskMode);
   const setMaskMode = useEditorStore((s) => s.setMaskMode);
-  const setInitialPrompt = useEditorStore((s) => s.setInitialPrompt);
   const reset = useEditorStore((s) => s.reset);
   const getImageModelForMode = useModelsStore((s) => s.getImageModelForMode);
 
-  const { run, attach } = useJobRunner();
+  const { run } = useJobRunner();
 
   const flash = useCallback((msg: string) => {
     setToast(msg);
@@ -103,21 +99,6 @@ function EditorPageInner() {
       .catch(() => {
         /* none yet */
       });
-
-    // If we navigated here with ?job=, start streaming its progress.
-    if (initialJob) {
-      getJob(initialJob)
-        .then((job) => {
-          // The originating prompt lives in the job's GenSpec — pin it to the canvas.
-          setInitialPrompt(job.genspec?.prompt ?? null);
-          if (job.status === "done" && job.result_asset) {
-            // Already finished before we attached — just load it.
-            return;
-          }
-          attach(initialJob, { pushUndo: false });
-        })
-        .catch(() => attach(initialJob, { pushUndo: false }));
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
