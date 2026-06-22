@@ -40,7 +40,7 @@ PNG·SVG·**PPTX**(편집 가능) — FigGen은 이미 PPTX+SVG(임베드)+previ
 SVG/PNG에서, PPTX는 래스터 그림으로 임포트되는 한계(vtracer path 미지원)는 동일.
 
 ## 6. 멀티모델 → OpenRouter 단일 provider 교체 (M7)
-FigureLabs는 Nano Banana/GPT Image/Sora/SeeDream/Flux 스위칭을 제공하지만, 본 프로젝트는 스위처 없이
+FigureLabs는 다중 이미지 모델 스위칭(Nano Banana/GPT Image/Sora 등)을 제공하지만, 본 프로젝트는 스위처 없이
 **OpenRouter 단일 provider**로 교체했다: LLM은 멀티모달(VL) 전용 `google/gemini-2.5-flash`(planner/classifier/
 critic-vision/chart/research), 이미지 default **`google/gemini-3.1-flash-image`**(폴백 `openai/gpt-5.4-image-2`).
 OpenRouter는 OpenAI 호환이라 LLM은 `base_url` 오버라이드로 기존 SDK 재사용, 이미지는
