@@ -110,13 +110,14 @@ C15 컨테이너/과대노드 커넥터는 라우팅에서 중앙 클램프·deg
 C16 scientific_illustration = 래스터 장면 아트(`svg_asset_id`로 SVG 벡터 인라인) + 벡터 라벨 오버레이, 커넥터 엔진 우회.
 
 ## 모델 ID (M7: OpenRouter 기본 + OpenAI 폴백, 전부 .env 오버라이드)
-planner/classifier/critic(VLM)·sketch 비전(`FIGGEN_VISION_MODEL`)/chart_coder/research = `minimax/minimax-m3`,
-image = `bytedance-seed/seedream-4.5`(SeeDream 4.5). provider 기본 `openrouter`(`OPENROUTER_API_KEY`,
-`FIGGEN_OPENROUTER_BASE_URL`), 키 없으면 mock 폴백. `auto`→openrouter→openai→mock.
+planner/classifier/critic(VLM)·sketch 비전(`FIGGEN_VISION_MODEL`)/chart_coder/research = 멀티모달(VL)
+`google/gemini-2.5-flash`, image default = `google/gemini-3.1-flash-image`(폴백 `openai/gpt-5.4-image-2`).
+provider 기본 `openrouter`(`OPENROUTER_API_KEY`, `FIGGEN_OPENROUTER_BASE_URL`), 키 없으면 mock 폴백.
+`auto`→openrouter→openai→mock.
 SDK: LLM은 `openai`(OpenRouter `base_url` 오버라이드로 호환 — `OpenRouterClient(OpenAIClient)`), 이미지는
 `httpx`로 `/chat/completions` + `modalities:["image"]`(응답 data URL → PNG 정규화), 웹검색은 `:online` 변종.
-주의: SeeDream은 **투명·mask 인페인트 미지원**(has_alpha=False, Region Redraw degrade); 비전 경로는
-비전 가능 OpenRouter 모델로 `vision_model` 오버라이드 권장. OpenAI(`gpt-image`/`gpt-5.x`)는 선택 폴백.
+주의: 이 이미지 생성 경로는 **투명·mask 인페인트 미지원**(has_alpha=False, Region Redraw degrade); LLM 역할
+기본값이 전부 멀티모달이라 비전 경로(critic/sketch)는 항상 가능.
 
 ## 대화형 단일 생성 플로우 (C19, M6)
 생성 진입은 **하나** — 좌측 Claude풍 대화로 계획을 확정한 뒤 생성. 백엔드 one-shot 잡 구조는 불변.

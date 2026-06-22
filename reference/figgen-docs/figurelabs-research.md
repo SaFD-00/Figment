@@ -2,7 +2,7 @@
 
 > 이 프로젝트는 **figurelabs.ai의 프레임워크·기능·UI를 클론**하는 것을 목표로 한다. **M7**에서 디자인을
 > figurelabs.ai와 최대한 동일하게(light-blue SaaS + 2모드/54템플릿, [[design-reference]]) 맞추고,
-> 모델을 **OpenRouter**(LLM `minimax/minimax-m3`, 이미지 `bytedance-seed/seedream-4.5`)로 교체했다.
+> 모델을 **OpenRouter**(LLM은 멀티모달(VL) `google/gemini-2.5-flash`, 이미지 `google/gemini-3.1-flash-image`)로 교체했다.
 > 멀티모델 스위처는 미채택(단일 provider 교체). 엔진은 FigGen의 구조적 FigureSpec→편집가능 PPTX/SVG +
 > **하이브리드 자동 라우팅**을 유지한다([[architecture]]).
 
@@ -41,11 +41,11 @@ SVG/PNG에서, PPTX는 래스터 그림으로 임포트되는 한계(vtracer pat
 
 ## 6. 멀티모델 → OpenRouter 단일 provider 교체 (M7)
 FigureLabs는 Nano Banana/GPT Image/Sora/SeeDream/Flux 스위칭을 제공하지만, 본 프로젝트는 스위처 없이
-**OpenRouter 단일 provider**로 교체했다: LLM `minimax/minimax-m3`(planner/classifier/critic-vision/chart/
-research), 이미지 **`bytedance-seed/seedream-4.5`**(SeeDream 4.5 = figurelabs BioRender급 품질 동인,
-$0.04/image). OpenRouter는 OpenAI 호환이라 LLM은 `base_url` 오버라이드로 기존 SDK 재사용, 이미지는
+**OpenRouter 단일 provider**로 교체했다: LLM은 멀티모달(VL) 전용 `google/gemini-2.5-flash`(planner/classifier/
+critic-vision/chart/research), 이미지 default **`google/gemini-3.1-flash-image`**(폴백 `openai/gpt-5.4-image-2`).
+OpenRouter는 OpenAI 호환이라 LLM은 `base_url` 오버라이드로 기존 SDK 재사용, 이미지는
 chat-completions+`modalities:["image"]`(httpx). 웹검색 그라운딩은 OpenRouter `:online` 변종으로 구현.
-OpenAI(`gpt-image`/`gpt-5.x`)는 선택적 폴백으로만 남김. 주의: SeeDream은 **투명·mask 인페인트 미지원**.
+주의: 이 이미지 생성 경로는 **투명·mask 인페인트 미지원**.
 
 ## 출처(요약)
 PRNewswire 런칭 기사, SciDraw/FigPad 비교글, 공식 소셜(@FigureLabs_AI) 카피, 가격/크레딧 페이지

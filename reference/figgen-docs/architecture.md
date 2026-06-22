@@ -2,8 +2,9 @@
 
 > figurelabs 프레임워크([[figurelabs-research]]) 기반. **M7**에서 UI를 **figurelabs.ai와 최대한 동일하게**
 > 재테마(light-blue SaaS + Inter, 2모드 토글·54 템플릿 갤러리·셀렉터, [[design-reference]])하고,
-> 모델을 **GPT(OpenAI) → OpenRouter**로 교체(LLM `minimax/minimax-m3`, 이미지 `bytedance-seed/seedream-4.5`
-> = 품질 1순위 동인). + Tier0 버그 5개(§7) 수정 + 소형 UX(프롬프트 강화·색 팔레트·Flat 프리셋·종횡비)
+> 모델을 **GPT(OpenAI) → OpenRouter**로 교체(LLM은 멀티모달(VL) `google/gemini-2.5-flash`, 이미지 default
+> `google/gemini-3.1-flash-image`(폴백 `openai/gpt-5.4-image-2`) = 품질 1순위 동인). + Tier0 버그 5개(§7)
+> 수정 + 소형 UX(프롬프트 강화·색 팔레트·Flat 프리셋·종횡비)
 > + 고해상도/JPG export. mock은 오프라인 폴백 유지.
 
 ## 0. 대화형 단일 생성 플로우 (M6 — 최상위 진입)
@@ -23,18 +24,18 @@
 ## 1. Provider (OpenRouter 기본 + OpenAI 폴백 + mock)
 - `providers/registry.py` 단일 라우팅 병목. 역할 모델 속성: planner/editor=`planner_model`,
   classifier=`classifier_model`, **critic=`vision_model`**(비전 필요), chart_coder=`chart_coder_model`,
-  research=`research_model`. 기본값 전부 `minimax/minimax-m3`(env 오버라이드).
+  research=`research_model`. LLM 역할 기본값 전부 멀티모달(VL) `google/gemini-2.5-flash`(env 오버라이드).
 - `_resolve_provider`: `auto`→openrouter(키 보유)→openai→mock. 명시 provider도 키 없으면 mock 폴백.
 - **OpenRouter**(`providers/openrouter_client.py`): OpenAI 호환(`base_url=…/api/v1`)이라 LLM은
   `OpenRouterClient(OpenAIClient)`로 SDK 재사용(`OpenAIClient`에 `base_url/extra_headers/omit_temp` 추가).
   `web_research`는 `:online` 변종(Responses API 미지원 대체). 이미지는 OpenAI Images API가 아니라
   **`POST /chat/completions` + `modalities:["image"]`**(httpx) → `choices[0].message.images[0].image_url.url`
   (data URL) → PNG 정규화. 종횡비/해상도는 `image_config.aspect_ratio`("16:9"/"1:1"/"9:16")·`image_size`
-  ("1K"/"2K"/"4K"). SeedReam은 **투명·mask 인페인트 미지원** → has_alpha=False, Region Redraw degrade.
-- 이미지: `get_image_client` → `OpenRouterImageClient`(SeedReam) / `OpenAIImageClient`(gpt-image, 폴백) / mock.
+  ("1K"/"2K"/"4K"). 이 이미지 생성 경로는 **투명·mask 인페인트 미지원** → has_alpha=False, Region Redraw degrade.
+- 이미지: `get_image_client` → `OpenRouterImageClient`(gemini-3.1-flash-image) / `OpenAIImageClient`(gpt-5.4-image-2, 폴백) / mock.
 - `config.py`: `OPENROUTER_API_KEY`·`FIGGEN_OPENROUTER_BASE_URL`·모델 ID 전부 `FIGGEN_*` env 오버라이드.
   `image_model`(구 `image_model_openai`, alias 호환). **비전 필요 경로(critic/sketch/참조분석)는
-  `vision_model`을 비전 가능 OpenRouter 모델로 오버라이드 권장**(minimax 비전 불확실 시 critic OFF).
+  `vision_model`을 비전 가능 OpenRouter 모델로 둔다**(LLM 역할 기본값이 모두 멀티모달이라 critic 항상 가능).
 
 ## 2. 파이프라인 (orchestrator.run, task 분기)
 ```
@@ -98,4 +99,4 @@ cairosvg(PNG), Pillow(JPG/정규화), python-pptx.
 ## 검증
 mock-우선: `pytest`(114 green; +OpenRouter 클라이언트·버그A~E·enhance·palette·flat·aspect·hi-res 테스트) +
 `figgen gen --provider mock` 전 타입 + `figgen serve` UI. 라이브: OpenRouter 키로 `gen --provider openrouter`,
-`scripts/gen_template_thumbs.py --provider openrouter`(실제 SeedReam 썸네일).
+`scripts/gen_template_thumbs.py --provider openrouter`(실제 gemini-3.1-flash-image 썸네일).

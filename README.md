@@ -56,17 +56,15 @@ FigureSpec → 편집 가능한 SVG/PPTX)으로, 로컬 이미지 모델은 **Co
 | **video** (text+image→video, 경량·기본) | `wan22-ti2v` | Wan 2.2 TI2V-5B |
 | **video** (text→video, MoE 품질) | `wan22-t2v` | Wan 2.2 T2V-A14B |
 | **video** (image→video, MoE 품질) | `wan22-i2v` | Wan 2.2 I2V-A14B |
-| 채팅/플래너 LLM (텍스트, 검열 없음) | `qwen-9b-local` · `qwen-4b-local` | Qwen3.5 Uncensored (9B / 4B) |
-| 채팅/플래너 VLM (멀티모달, prompt-enhance 이미지 입력) | `qwen3-vl-local` | Huihui Qwen3-VL 8B abliterated |
+| 채팅/플래너 LLM (멀티모달, prompt-enhance 이미지 입력) | `qwen3-vl-local` | Huihui Qwen3-VL 8B abliterated (uncensored) |
 
 부가: ControlNet은 xinsir ControlNet-Union ProMax 단일 파일이 canny/depth/scribble/lineart/**pose**를 모두 커버하며,
 pose 전처리는 DWPose입니다. 업스케일은 RealESRGAN + Ultimate SD Upscale입니다.
 
 ### 클라우드 모델 (OpenRouter)
 
-- **이미지**: GPT Image 2 · Nano Banana 2 · SeeDream 4.5 · FLUX.2 Max/Pro/Flex
-- **LLM (텍스트)**: GPT-OSS 20B/120B (free) · Qwen3.7 Plus · Qwen3.6 Flash · Qwen3.6 35B-A3B
-- **VLM (멀티모달)**: Gemini 2.5 Flash · GPT-5.4 mini · Qwen3.6 Flash — prompt-enhance에서 이미지를 읽어 반영
+- **이미지**: GPT Image 2 · Nano Banana 2
+- **LLM (멀티모달)**: Gemini 2.5 Flash · GPT-5.4 mini · Qwen3.6 Flash — 채팅·플래너에 쓰고 prompt-enhance에서 이미지를 읽어 반영
 
 ---
 
@@ -158,8 +156,8 @@ bash scripts/21_pull_ollama_models.sh  # Ollama 채팅 LLM pull
 | `HF_TOKEN` | — | HuggingFace read 토큰(다운로드용) |
 | `AISTUDIO_HOME` | `<repo>/AIStudio` | 로컬 런타임 홈. 보통 `/data/<user>/Figment/AIStudio` 심볼릭 링크 |
 | `OLLAMA_MODELS` | `$AISTUDIO_HOME/ollama` | Ollama 가중치 저장 경로(/data 위) |
-| `OLLAMA_LLM` / `OLLAMA_LLM_FALLBACK` | Qwen3.5 9B / 4B | 폴백 로컬 LLM 태그(UI 선택이 우선) |
-| `VRAM_BUDGET_GB` / `LLM_RESIDENT_GB` | `78` / `6.5` | H100 80GB 메모리 예산(`config.py` 기본값과 일치) |
+| `OLLAMA_LLM` | `huihui_ai/qwen3-vl-abliterated:8b` | 폴백 로컬 LLM 태그(멀티모달; UI 선택이 우선) |
+| `VRAM_BUDGET_GB` / `LLM_RESIDENT_GB` | `78` / `5.0` | H100 80GB 메모리 예산(`config.py` 기본값과 일치) |
 
 클라우드 figure 파이프라인의 폴백 모델 id(`FIGGEN_PLANNER_MODEL`, `FIGGEN_CLASSIFIER_MODEL`,
 `FIGGEN_VISION_MODEL`, `FIGGEN_CHART_CODER_MODEL`, `FIGGEN_DEFAULT_IMAGER` 등)도 `.env`에 있으며, UI에서 클라우드

@@ -21,7 +21,7 @@
   - **워크스페이스**(`#workspace`): 2-pane `clamp(360px,33%,460px) 1fr`(좌 대화 chatPanel · 우 캔버스).
     생성/대화 중 표시.
 - **프롬프트 카드**: 입력모드 버튼(Enhance Figure/Sketch to Figure/Add Ref Figure) + 📎/💡(AI 강화)/🎨
-  (색 팔레트) + 모델칩 `🍌 SeeDream 4.5` + 스타일·종횡비 셀렉터 + 라운드 ↑ 전송.
+  (색 팔레트) + 모델칩 `🍌 Gemini 3.1 Flash Image` + 스타일·종횡비 셀렉터 + 라운드 ↑ 전송.
 - **분야 갤러리**: 9분야 칩(`disc-chip`) × 6 템플릿 카드(`tpl-card`, 3-col 그리드) = 54.
   Flowcharts 모드는 7개 표준 템플릿(CONSORT/PRISMA/Fishbone/Roadmap/…). 데이터 = `frontend/data/templates.json`.
   카드 썸네일 = `/img/templates/<id>.png`(`scripts/gen_template_thumbs.py`가 실제 생성, 없으면 CSS

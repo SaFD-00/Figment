@@ -61,21 +61,19 @@ Upscaler: `RealESRGAN_x4plus.pth` (`upscale_models/`) + **Ultimate SD Upscale**
 |---|---|---|
 | `gpt-image-2` | `openai/gpt-image-2` (VERIFY) | txt2img, img2img, edit, inpaint |
 | `nano-banana-2` | `google/nano-banana-2` (VERIFY) | txt2img, img2img, edit, reference |
-| `seedream-4.5` | `bytedance-seed/seedream-4.5` | txt2img, img2img, edit, reference |
-| `flux2-max` | `black-forest-labs/flux.2-max` | txt2img, img2img, edit, reference |
-| `flux2-pro` | `black-forest-labs/flux.2-pro` | txt2img, img2img, edit, reference |
-| `flux2-flex` | `black-forest-labs/flux.2-flex` | txt2img, img2img, edit, reference |
 
 ## Chat / planner LLMs
 
-**Local (Ollama):**
-- `qwen-9b-local` — `hf.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive:Q4_K_M` (~6.5GB, primary).
-- `qwen-4b-local` — `…Qwen3.5-4B…:Q4_K_M` (~3.4GB, light fallback).
+The chat/planner LLM lineup is **vision-capable only** (every entry is multimodal, `vision=True`), so
+prompt-enhance can always ground the rewrite in an uploaded edit/reference image.
 
-**Cloud (OpenRouter):** `gpt-oss-20b` (`openai/gpt-oss-20b:free`), `gpt-oss-120b` (`:free`),
-`qwen3-plus` (`qwen/qwen3.7-plus`), `qwen3-flash` (`qwen/qwen3.6-flash`), `qwen3-35b-a3b`
-(`qwen/qwen3.6-35b-a3b`). The FigGen pipeline's per-feature defaults (`FIGGEN_*_MODEL`) point at these;
-`FIGGEN_VISION_MODEL` must be a VL-capable slug (the gpt-oss models are text-only).
+**Local (Ollama):**
+- `qwen3-vl-local` — `huihui_ai/qwen3-vl-abliterated:8b` (~5GB, uncensored multimodal; the local default).
+
+**Cloud (OpenRouter):** `gemini-2.5-flash` (`google/gemini-2.5-flash`), `gpt-5.4-mini`
+(`openai/gpt-5.4-mini`), `qwen3-6-flash` (`qwen/qwen3-6-flash`). The FigGen pipeline's per-feature
+defaults (`FIGGEN_*_MODEL`) point at a multimodal slug; `FIGGEN_VISION_MODEL` must be VL-capable
+(all of these are).
 
 ## Download
 `scripts/20_download_models.sh [base|sdxl|edit|ref|identity|video|all]`. Repo ids/filenames marked

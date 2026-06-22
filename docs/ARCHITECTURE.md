@@ -15,7 +15,7 @@ FastAPI backend (:8000)
         │ HTTP /api/chat            │ HTTP /prompt + WS /ws
         ▼                           ▼
    Ollama (:11434)            ComfyUI (:8188, CUDA, fp8/safetensors)
-   Qwen3.5-9B uncensored      Chroma·LUSTIFY·FLUX-Fill·Qwen-Edit-AIO·Kontext·Redux·InstantID/IP-Adapter/PuLID·Wan2.2·ControlNet-Union·RealESRGAN
+   Qwen3-VL 8b (multimodal)   Chroma·LUSTIFY·FLUX-Fill·Qwen-Edit-AIO·Kontext·Redux·InstantID/IP-Adapter/PuLID·Wan2.2·ControlNet-Union·RealESRGAN
         └────────── H100 80GB VRAM (full photoreal stack co-resident) ──────────┘
                                   ▼ writes
          <repo>/AIStudio/ (models, comfyui, outputs, db.sqlite, logs)  ← single runtime home (git-ignored)

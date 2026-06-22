@@ -42,7 +42,7 @@ uv venv .venv --python 3.12
 uv pip install --python .venv/bin/python -e ".[dev]"
 
 # 3) API 키 (없어도 mock provider로 오프라인 동작) — OpenRouter
-cp .env.example .env   # OPENROUTER_API_KEY 입력 (선택; SeeDream 4.5 + Qwen3.7 Plus)
+cp .env.example .env   # OPENROUTER_API_KEY 입력 (선택; Gemini 3.1 Flash Image + Gemini 2.5 Flash)
 ```
 
 설치가 끝나면 `figgen` 실행 파일은 `.venv/bin/figgen`에 생긴다. 아래 예시는 모두 이 경로를 쓴다.
@@ -135,12 +135,12 @@ cp .env.example .env   # OPENROUTER_API_KEY 입력 (선택; SeeDream 4.5 + Qwen3
 | `--no-png` | off | 미리보기 PNG 생략 |
 
 ## provider 모드 (OpenRouter 단일)
-- `openrouter`(기본) — `.env`에 `OPENROUTER_API_KEY` 입력 후 사용. LLM `qwen/qwen3.7-plus`(planner·classifier·critic(비전)·chart·research), 이미지 **`bytedance-seed/seedream-4.5`**(SeeDream 4.5). 키 없으면 `mock` 폴백.
+- `openrouter`(기본) — `.env`에 `OPENROUTER_API_KEY` 입력 후 사용. LLM은 멀티모달(VL) 전용 `google/gemini-2.5-flash`(planner·classifier·critic(비전)·chart·research), 이미지 default **`google/gemini-3.1-flash-image`**(폴백 `openai/gpt-5.4-image-2`). 키 없으면 `mock` 폴백.
 - `mock`(키없음 폴백) — 키 불필요. 타입별 캔드 `FigureSpec` + PIL placeholder 에셋으로 오프라인 구동.
 - `auto` — 키가 있으면 OpenRouter, 없으면 `mock`.
 
-> 모든 모델 ID는 `FIGGEN_*` 환경변수로 오버라이드 가능. **주의**: SeeDream은 투명·mask 인페인트 미지원
-> (Region Redraw degrade); critic/sketch/참조분석의 `FIGGEN_VISION_MODEL`은 비전 가능 OpenRouter 모델 권장.
+> 모든 모델 ID는 `FIGGEN_*` 환경변수로 오버라이드 가능. LLM 역할은 전부 멀티모달(VL) 슬러그를 기본값으로 둔다
+> (`FIGGEN_VISION_MODEL` 포함). **주의**: OpenRouter 이미지 생성 경로는 투명·mask 인페인트 미지원(Region Redraw degrade).
 
 ## figurelabs 디자인 클론 & 웹 앱 네비
 웹 앱(`serve`)은 **figurelabs.ai와 최대한 동일한 UI**(light-blue SaaS + Inter)로, 헤더에 Upgrade/크레딧/
@@ -178,13 +178,13 @@ cp .env.example .env   # OPENROUTER_API_KEY 입력 (선택; SeeDream 4.5 + Qwen3
 | `OPENROUTER_API_KEY` | — | OpenRouter 키(비우면 mock 폴백) |
 | `FIGGEN_PROVIDER` | `openrouter` | 기본 provider (`mock`·`openrouter`·`auto`) |
 | `FIGGEN_OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | OpenRouter 베이스 URL |
-| `FIGGEN_PLANNER_MODEL` | `qwen/qwen3.7-plus` | planner 모델 |
-| `FIGGEN_CLASSIFIER_MODEL` | `qwen/qwen3.6-flash` | 분류기 모델 |
-| `FIGGEN_VISION_MODEL` | `qwen/qwen3.7-plus` | critic(VLM)·sketch 비전 모델 (VL 멀티모달 모델 필요) |
-| `FIGGEN_CHART_CODER_MODEL` | `qwen/qwen3.7-plus` | 차트 코드 생성 모델 |
-| `FIGGEN_DEFAULT_IMAGER` | `bytedance-seed/seedream-4.5` | 이미지(생성·edit) 모델 |
+| `FIGGEN_PLANNER_MODEL` | `google/gemini-2.5-flash` | planner 모델 |
+| `FIGGEN_CLASSIFIER_MODEL` | `google/gemini-2.5-flash` | 분류기 모델 |
+| `FIGGEN_VISION_MODEL` | `google/gemini-2.5-flash` | critic(VLM)·sketch 비전 모델 (VL 멀티모달 모델 필요) |
+| `FIGGEN_CHART_CODER_MODEL` | `google/gemini-2.5-flash` | 차트 코드 생성 모델 |
+| `FIGGEN_DEFAULT_IMAGER` | `google/gemini-3.1-flash-image` | 이미지(생성·edit) 모델 (폴백 `openai/gpt-5.4-image-2`) |
 | `FIGGEN_RESEARCH_ENABLED` | `false` | 웹검색 그라운딩 기본값 |
-| `FIGGEN_RESEARCH_MODEL` | `qwen/qwen3.7-plus` | research(`:online`) 모델 |
+| `FIGGEN_RESEARCH_MODEL` | `google/gemini-2.5-flash` | research(`:online`) 모델 |
 | `FIGGEN_RESEARCH_MAX_CHARS` | `4000` | 리서치 컨텍스트 최대 길이 |
 | `FIGGEN_CRITIC_ENABLED` | `true` | critic 보정 루프 on/off |
 | `FIGGEN_MAX_CRITIC_ITERS` | `2` | critic 최대 반복 |
