@@ -52,25 +52,28 @@ class Settings(BaseSettings):
         default="https://openrouter.ai/api/v1",
         validation_alias=AliasChoices("FIGGEN_OPENROUTER_BASE_URL", "openrouter_base_url"),
     )
+    # LLM 라인업은 vision-capable 전용 — 모든 추론 역할 기본값을 멀티모달(VL) 슬러그로 둔다.
     planner_model: str = Field(
-        default="qwen/qwen3.7-plus",
+        default="google/gemini-2.5-flash",
         validation_alias=AliasChoices("FIGGEN_PLANNER_MODEL", "planner_model"),
     )
     classifier_model: str = Field(
-        default="qwen/qwen3.6-flash",
+        default="google/gemini-2.5-flash",
         validation_alias=AliasChoices("FIGGEN_CLASSIFIER_MODEL", "classifier_model"),
     )
     # critic(VLM)·sketch·참조 분석 비전 호출용 — 멀티모달(VL) 가능 모델 필요.
     vision_model: str = Field(
-        default="qwen/qwen3.7-plus",  # VERIFY: VL(멀티모달) 가능 슬러그인지 확인
+        default="google/gemini-2.5-flash",
         validation_alias=AliasChoices("FIGGEN_VISION_MODEL", "FIGGEN_CRITIC_MODEL", "vision_model"),
     )
     chart_coder_model: str = Field(
-        default="qwen/qwen3.7-plus",
+        default="google/gemini-2.5-flash",
         validation_alias=AliasChoices("FIGGEN_CHART_CODER_MODEL", "chart_coder_model"),
     )
+    # 이미지 생성 모델. API default는 .env의 FIGGEN_DEFAULT_IMAGER(google/gemini-3.1-flash-image);
+    # env 미설정 시 이 소스 기본값(openai/gpt-5.4-image-2)으로 폴백한다.
     image_model: str = Field(
-        default="openai/gpt-5.4-image-2",   # VERIFY slug
+        default="openai/gpt-5.4-image-2",   # fallback slug (VERIFY)
         validation_alias=AliasChoices("FIGGEN_DEFAULT_IMAGER", "image_model"),
     )
 
@@ -81,7 +84,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("FIGGEN_RESEARCH_ENABLED", "research_enabled_default"),
     )
     research_model: str = Field(
-        default="qwen/qwen3.7-plus",
+        default="google/gemini-2.5-flash",
         validation_alias=AliasChoices("FIGGEN_RESEARCH_MODEL", "research_model"),
     )
     research_max_chars: int = Field(

@@ -1,4 +1,4 @@
-"""OpenRouter provider — MiniMax M3(LLM) + SeedReam 4.5(이미지).
+"""OpenRouter provider — multimodal (vision-capable) LLM + image generation.
 
 OpenRouter는 OpenAI 호환(`https://openrouter.ai/api/v1`)이므로 LLM은 OpenAIClient에
 base_url만 지정해 재사용한다. 이미지 생성은 OpenAI Images API가 아니라
@@ -9,8 +9,8 @@ base_url만 지정해 재사용한다. 이미지 생성은 OpenAI Images API가 
 https://openrouter.ai/docs/guides/overview/multimodal/image-generation
 - 종횡비/해상도: ``image_config.aspect_ratio``("16:9"/"1:1"/"9:16") · ``image_config.image_size``
   ("0.5K"/"1K"/"2K"/"4K"). image-to-image는 입력 이미지 첨부 + ``image_config.strength``(0~1).
-- SeedReam 4.5는 투명 PNG·mask 인페인트를 보장하지 않는다 → has_alpha=False, mask는 무시하고
-  전체-이미지 편집으로 degrade(Region Redraw 품질 저하 가능).
+- 이 이미지 생성 경로(`/chat/completions` modalities)는 투명 PNG·mask 인페인트를 보장하지 않는다
+  → has_alpha=False, mask는 무시하고 전체-이미지 편집으로 degrade(Region Redraw 품질 저하 가능).
 """
 
 from __future__ import annotations
@@ -25,12 +25,12 @@ _HEADERS = {"HTTP-Referer": "https://figgen.local", "X-Title": "FigGen"}
 
 
 class OpenRouterClient(OpenAIClient):
-    """MiniMax M3 등 OpenRouter LLM — OpenAI 호환 chat-completions 재사용."""
+    """OpenRouter LLM (멀티모달 VL) — OpenAI 호환 chat-completions 재사용."""
 
     def __init__(
         self,
         api_key: str,
-        model: str = "minimax/minimax-m3",
+        model: str = "google/gemini-2.5-flash",
         *,
         base_url: str = OPENROUTER_BASE_URL,
     ):
@@ -39,7 +39,7 @@ class OpenRouterClient(OpenAIClient):
             model,
             base_url=base_url,
             extra_headers=dict(_HEADERS),
-            omit_temp=False,  # minimax는 커스텀 temperature 지원
+            omit_temp=False,  # OpenRouter LLM은 temperature 지원
             name=f"openrouter:{model}",
         )
 
@@ -160,7 +160,7 @@ class OpenRouterImageClient:
         payload = {
             "model": self.model,
             "messages": [{"role": "user", "content": full}],
-            "modalities": ["image"],  # SeedReam은 이미지 전용 출력
+            "modalities": ["image"],  # 이미지 전용 출력
             "image_config": {
                 "aspect_ratio": self._aspect(width_px, height_px),
                 "image_size": self._image_size(width_px, height_px),
@@ -180,7 +180,7 @@ class OpenRouterImageClient:
         input_fidelity: str = "high",
         transparent: bool = False,
     ) -> AssetResult:
-        """image-to-image 편집. mask는 SeedReam 미지원 → 무시(전체-이미지 편집)."""
+        """image-to-image 편집. mask는 이 경로 미지원 → 무시(전체-이미지 편집)."""
         b64 = base64.b64encode(image).decode("ascii")
         content = [
             {"type": "text", "text": prompt},

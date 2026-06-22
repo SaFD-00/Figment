@@ -1,6 +1,6 @@
 """역할(planner/critic/classifier/chart_coder/editor/research)→클라이언트 라우팅.
 
-실 provider는 **OpenRouter 단일**(LLM=qwen/qwen3.7-plus 등, 이미지=openai/gpt-5.4-image-2 등).
+실 provider는 **OpenRouter 단일**(LLM=google/gemini-2.5-flash 등, 이미지=google/gemini-3.1-flash-image 등).
 provider='auto'/키 없음/명시 mock이면 mock으로 안전 폴백(오프라인 구동).
 """
 
@@ -58,7 +58,7 @@ def get_image_client(
     transparent: bool = False,
     provider_override: str | None = None,
 ) -> ImageClient:
-    """이미지 생성 클라이언트. OpenRouter(SeeDream 4.5 등)·mock 안전 폴백."""
+    """이미지 생성 클라이언트. OpenRouter(gemini-3.1-flash-image 등)·mock 안전 폴백."""
     provider = _resolve_provider("planner", settings, provider_override)
     if provider == "openrouter":
         from .openrouter_client import OpenRouterImageClient

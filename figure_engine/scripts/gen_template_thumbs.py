@@ -6,7 +6,7 @@
 
 - 멱등: 이미 있으면 건너뜀(--force로 재생성).
 - 기본 provider=mock(오프라인 안전·placeholder 품질). 실제 figurelabs급 썸네일은
-  ``--provider openrouter``(SeedReam 4.5, 이미지당 ~$0.04) + OPENROUTER_API_KEY 필요.
+  ``--provider openrouter``(gemini-3.1-flash-image) + OPENROUTER_API_KEY 필요.
 
 예) python scripts/gen_template_thumbs.py --provider openrouter
     python scripts/gen_template_thumbs.py --only bio_cells,med_anatomy --force

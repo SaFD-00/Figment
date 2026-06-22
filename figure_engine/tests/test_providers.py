@@ -87,17 +87,17 @@ def test_mock_image_client_alpha():
 def test_openrouter_llm_config():
     from figgen.providers.openrouter_client import OpenRouterClient
 
-    c = OpenRouterClient("sk-or-xxx", "minimax/minimax-m3")
+    c = OpenRouterClient("sk-or-xxx", "google/gemini-2.5-flash")
     assert c.base_url == "https://openrouter.ai/api/v1"
-    assert c.name == "openrouter:minimax/minimax-m3"
-    assert c._omit_temp is False  # minimax는 temperature 지원
+    assert c.name == "openrouter:google/gemini-2.5-flash"
+    assert c._omit_temp is False  # OpenRouter LLM은 temperature 지원
     assert c.extra_headers.get("X-Title") == "FigGen"
 
 
 def test_openrouter_image_aspect_and_size():
     from figgen.providers.openrouter_client import OpenRouterImageClient
 
-    c = OpenRouterImageClient("sk-or-xxx", "bytedance-seed/seedream-4.5")
+    c = OpenRouterImageClient("sk-or-xxx", "google/gemini-3.1-flash-image")
     assert c._aspect(1536, 1024) == "16:9"
     assert c._aspect(1024, 1536) == "9:16"
     assert c._aspect(1024, 1024) == "1:1"
