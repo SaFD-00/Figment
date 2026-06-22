@@ -1,121 +1,166 @@
-"""Graph builder produces well-formed ComfyUI graphs for each mode."""
-import pytest
+"""Graph builder produces well-formed ComfyUI graphs for each mode.
 
+Shared helpers (build_ctx / assert_graph / assert_video_graph) live in conftest.py.
+The exhaustive "every local model × supported mode" sweep lives in test_registry.py;
+this file keeps the targeted, behaviour-specific assertions.
+"""
 from app.comfy import builder as B
-from app.models_catalog.registry import MODELS, resolve
 from app.schemas.genspec import GenSpec, Mode
 
 
-def _ctx(model_id, **kw):
-    m = MODELS[model_id]
-    return B.BuildContext(model=m, width=kw.get("width", 1024), height=kw.get("height", 1024),
-                          comfy_source=kw.get("src"), comfy_mask=kw.get("mask"),
-                          comfy_refs=kw.get("refs", []))
+def _types(res: B.BuildResult) -> set[str]:
+    return {n["class_type"] for n in res.graph.values()}
 
 
-def _assert_graph(result: B.BuildResult):
-    g = result.graph
-    assert isinstance(g, dict) and g
-    # every node has class_type + inputs; links point to existing nodes
-    for nid, node in g.items():
-        assert "class_type" in node and "inputs" in node
-        for v in node["inputs"].values():
-            if isinstance(v, list) and len(v) == 2 and isinstance(v[0], str):
-                assert v[0] in g, f"node {nid} links to missing node {v[0]}"
-    assert result.save_node in g
-    assert g[result.save_node]["class_type"] == "SaveImage"
-
-
-def _assert_video_graph(result: B.BuildResult):
-    """Like _assert_graph but the save node is a video writer, not SaveImage."""
-    g = result.graph
-    assert isinstance(g, dict) and g
-    for nid, node in g.items():
-        assert "class_type" in node and "inputs" in node
-        for v in node["inputs"].values():
-            if isinstance(v, list) and len(v) == 2 and isinstance(v[0], str):
-                assert v[0] in g, f"node {nid} links to missing node {v[0]}"
-    assert result.save_node in g
-    assert result.is_video
-
-
-def test_txt2img_sdxl():
+# ── txt2img / img2img ────────────────────────────────────────────────────────
+def test_txt2img_sdxl(build_ctx, assert_graph):
     spec = GenSpec(mode=Mode.txt2img, model="lustify", prompt="a fox")
-    _assert_graph(B.build(spec, _ctx("lustify")))
+    assert_graph(B.build(spec, build_ctx("lustify")))
 
 
-def test_txt2img_chroma_native():
+def test_txt2img_chroma_native(build_ctx, assert_graph):
     spec = GenSpec(mode=Mode.txt2img, model="chroma-hd", prompt="a fox")
-    res = B.build(spec, _ctx("chroma-hd"))
-    _assert_graph(res)
+    res = B.build(spec, build_ctx("chroma-hd"))
+    assert_graph(res)
     # chroma-hd ships native fp8 safetensors → native UNETLoader, not the GGUF loader
-    assert any(n["class_type"] == "UNETLoader" for n in res.graph.values())
-    assert not any(n["class_type"] == "UnetLoaderGGUF" for n in res.graph.values())
-    assert any(n["class_type"] == "FluxGuidance" for n in res.graph.values())
+    assert "UNETLoader" in _types(res)
+    assert "UnetLoaderGGUF" not in _types(res)
+    assert "FluxGuidance" in _types(res)
 
 
-def test_inpaint_flux_fill_stays_gguf():
-    spec = GenSpec(mode=Mode.inpaint, model="flux-fill", prompt="brick wall",
-                   source_asset="s", mask_asset="m")
-    res = B.build(spec, _ctx("flux-fill", src="imggen/src.png", mask="imggen/mask.png"))
-    _assert_graph(res)
-    assert any(n["class_type"] == "InpaintModelConditioning" for n in res.graph.values())
-    # flux-fill keeps GGUF weights → GGUF loader
-    assert any(n["class_type"] == "UnetLoaderGGUF" for n in res.graph.values())
+def test_img2img_chroma_native(build_ctx, assert_graph):
+    spec = GenSpec(mode=Mode.img2img, model="chroma-hd", prompt="a fox",
+                   source_asset="s", denoise=0.6)
+    res = B.build(spec, build_ctx("chroma-hd", src="imggen/s.png"))
+    assert_graph(res)
+    assert "UNETLoader" in _types(res) and "VAEEncode" in _types(res)
 
 
-def test_controlnet_sdxl_pose():
-    spec = GenSpec(mode=Mode.controlnet, model="lustify", prompt="city", controlnet_type="pose")
-    res = B.build(spec, _ctx("lustify", refs=["imggen/ref.png"]))
-    _assert_graph(res)
-    assert any(n["class_type"] == "ControlNetApplyAdvanced" for n in res.graph.values())
-    assert any(n["class_type"] == "DWPreprocessor" for n in res.graph.values())
-
-
-def test_no_score_prefix_for_lustify():
+def test_no_score_prefix_for_lustify(build_ctx, assert_graph):
     spec = GenSpec(mode=Mode.txt2img, model="lustify", prompt="a fox")
-    res = B.build(spec, _ctx("lustify"))
+    res = B.build(spec, build_ctx("lustify"))
     texts = [n["inputs"].get("text", "") for n in res.graph.values() if n["class_type"] == "CLIPTextEncode"]
     assert all("score_9" not in t for t in texts)
 
 
-def test_edit_qwen_aio():
+# ── inpaint ──────────────────────────────────────────────────────────────────
+def test_inpaint_flux_fill_stays_gguf(build_ctx, assert_graph):
+    spec = GenSpec(mode=Mode.inpaint, model="flux-fill", prompt="brick wall",
+                   source_asset="s", mask_asset="m")
+    res = B.build(spec, build_ctx("flux-fill", src="imggen/src.png", mask="imggen/mask.png"))
+    assert_graph(res)
+    assert "InpaintModelConditioning" in _types(res)
+    assert "UnetLoaderGGUF" in _types(res)  # flux-fill keeps GGUF weights
+
+
+def test_inpaint_sdxl_lustify(build_ctx, assert_graph):
+    spec = GenSpec(mode=Mode.inpaint, model="sdxl-inpaint", prompt="skin",
+                   source_asset="s", mask_asset="m")
+    res = B.build(spec, build_ctx("sdxl-inpaint", src="imggen/src.png", mask="imggen/mask.png"))
+    assert_graph(res)
+    assert "VAEEncodeForInpaint" in _types(res)
+
+
+# ── edit ─────────────────────────────────────────────────────────────────────
+def test_edit_qwen_aio(build_ctx, assert_graph):
     spec = GenSpec(mode=Mode.edit, model="qwen-edit-aio", prompt="remove the hat", source_asset="s")
-    res = B.build(spec, _ctx("qwen-edit-aio", src="imggen/src.png"))
-    _assert_graph(res)
-    assert any(n["class_type"] == "TextEncodeQwenImageEdit" for n in res.graph.values())
-    assert any(n["class_type"] == "CheckpointLoaderSimple" for n in res.graph.values())
+    res = B.build(spec, build_ctx("qwen-edit-aio", src="imggen/src.png"))
+    assert_graph(res)
+    # AIO loads from one fused checkpoint, not the separate-file Qwen loaders
+    assert "CheckpointLoaderSimple" in _types(res)
+    assert "TextEncodeQwenImageEdit" in _types(res)
+    assert "UnetLoaderGGUF" not in _types(res)
 
 
-def test_identity_instantid():
+def test_edit_kontext_multiref(build_ctx, assert_graph):
+    spec = GenSpec(mode=Mode.edit, model="kontext", prompt="same outfit")
+    res = B.build(spec, build_ctx("kontext", refs=["imggen/a.png", "imggen/b.png"]))
+    assert_graph(res)
+    # one chained ReferenceLatent per reference image
+    assert sum(1 for n in res.graph.values() if n["class_type"] == "ReferenceLatent") == 2
+
+
+# ── reference / style ────────────────────────────────────────────────────────
+def test_reference_redux_native(build_ctx, assert_graph):
+    spec = GenSpec(mode=Mode.reference, model="redux", prompt="this style")
+    res = B.build(spec, build_ctx("redux", refs=["imggen/r.png"]))
+    assert_graph(res)
+    assert "StyleModelApply" in _types(res)
+    # redux rides the Chroma fp8 base → native loader, not GGUF
+    assert "UNETLoader" in _types(res) and "UnetLoaderGGUF" not in _types(res)
+
+
+# ── identity / face (consent-gated) ──────────────────────────────────────────
+def test_identity_instantid(build_ctx, assert_graph):
     spec = GenSpec(mode=Mode.reference, model="instantid", prompt="portrait")
-    res = B.build(spec, _ctx("instantid", refs=["imggen/face.png"]))
-    _assert_graph(res)
-    assert any(n["class_type"] == "ApplyInstantID" for n in res.graph.values())
+    res = B.build(spec, build_ctx("instantid", refs=["imggen/face.png"]))
+    assert_graph(res)
+    assert "ApplyInstantID" in _types(res)
 
 
-def test_video_wan_t2v():
+def test_identity_ipadapter(build_ctx, assert_graph):
+    spec = GenSpec(mode=Mode.reference, model="ip-adapter", prompt="same face")
+    res = B.build(spec, build_ctx("ip-adapter", refs=["imggen/face.png"]))
+    assert_graph(res)
+    assert "IPAdapterFaceID" in _types(res)
+
+
+def test_identity_pulid_native(build_ctx, assert_graph):
+    spec = GenSpec(mode=Mode.reference, model="pulid-flux", prompt="same face")
+    res = B.build(spec, build_ctx("pulid-flux", refs=["imggen/face.png"]))
+    assert_graph(res)
+    assert "ApplyPulidFlux" in _types(res)
+    assert "UNETLoader" in _types(res)
+
+
+# ── controlnet + pose ────────────────────────────────────────────────────────
+def test_controlnet_sdxl_pose(build_ctx, assert_graph):
+    spec = GenSpec(mode=Mode.controlnet, model="lustify", prompt="city", controlnet_type="pose")
+    res = B.build(spec, build_ctx("lustify", refs=["imggen/ref.png"]))
+    assert_graph(res)
+    assert "ControlNetApplyAdvanced" in _types(res)
+    assert "DWPreprocessor" in _types(res)  # pose preprocessor
+
+
+def test_controlnet_sdxl_canny(build_ctx, assert_graph):
+    spec = GenSpec(mode=Mode.controlnet, model="lustify", prompt="city", controlnet_type="canny")
+    res = B.build(spec, build_ctx("lustify", refs=["imggen/ref.png"]))
+    assert_graph(res)
+    assert "CannyEdgePreprocessor" in _types(res)
+
+
+# ── video (Wan 2.2) ──────────────────────────────────────────────────────────
+def test_video_wan_t2v(build_ctx, assert_video_graph):
     spec = GenSpec(mode=Mode.video, model="wan22-ti2v", prompt="a waterfall")
-    res = B.build(spec, _ctx("wan22-ti2v"))
-    _assert_video_graph(res)
-    assert any(n["class_type"] == "SaveAnimatedWEBP" for n in res.graph.values())
+    res = B.build(spec, build_ctx("wan22-ti2v"))
+    assert_video_graph(res)
+    assert "SaveAnimatedWEBP" in _types(res)
+    assert "EmptyHunyuanLatentVideo" in _types(res)  # text→video latent
 
 
-def test_video_wan_i2v():
+def test_video_wan_i2v(build_ctx, assert_video_graph):
     spec = GenSpec(mode=Mode.video, model="wan22-i2v", prompt="pan the camera", source_asset="s")
-    res = B.build(spec, _ctx("wan22-i2v", src="imggen/src.png"))
-    _assert_video_graph(res)
-    assert any(n["class_type"] == "WanImageToVideo" for n in res.graph.values())
+    res = B.build(spec, build_ctx("wan22-i2v", src="imggen/src.png"))
+    assert_video_graph(res)
+    assert "WanImageToVideo" in _types(res)  # image→video branch
 
 
-def test_lora_chain():
+# ── LoRA chain + standalone upscalers ────────────────────────────────────────
+def test_lora_chain(build_ctx):
     spec = GenSpec(mode=Mode.txt2img, model="lustify", prompt="x",
                    loras=[{"name": "a.safetensors", "weight": 0.7}])
-    res = B.build(spec, _ctx("lustify"))
-    assert any(n["class_type"] == "LoraLoader" for n in res.graph.values())
+    res = B.build(spec, build_ctx("lustify"))
+    assert "LoraLoader" in _types(res)
 
 
-def test_upscale_graph():
+def test_upscale_realesrgan(assert_graph):
     res = B.build_upscale("imggen/x.png")
-    _assert_graph(res)
-    assert any(n["class_type"] == "ImageUpscaleWithModel" for n in res.graph.values())
+    assert_graph(res)
+    assert "ImageUpscaleWithModel" in _types(res)
+
+
+def test_ultimate_sd_upscale(build_ctx, assert_graph):
+    spec = GenSpec(mode=Mode.txt2img, model="lustify", prompt="more detail")
+    res = B.build_ultimate_upscale(spec, build_ctx("lustify"), "imggen/x.png")
+    assert_graph(res)
+    assert "UltimateSDUpscale" in _types(res)

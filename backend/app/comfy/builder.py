@@ -128,8 +128,10 @@ def _flux_base(g: _G, m: ModelDef, spec: GenSpec, *, flux_guidance: float | None
     else:
         unet = g.add("UNETLoader", {"unet_name": m.files["unet"], "weight_dtype": "fp8_e4m3fn"})
     model_link = [unet, 0]
-    if m.family == "chroma":
-        # Chroma uses a SINGLE T5 encoder (type="chroma"), not FLUX's dual CLIP.
+    # Chroma-family bases (chroma-hd, redux, pulid-flux) ride a SINGLE T5 encoder (type="chroma");
+    # only true dual-CLIP FLUX weights (flux-fill, kontext) carry a second CLIP ("clip2").
+    single_t5 = "clip2" not in m.files
+    if single_t5:
         if is_gguf:
             clip = g.add("CLIPLoaderGGUF", {"clip_name": m.files["clip"], "type": "chroma"})
         else:
