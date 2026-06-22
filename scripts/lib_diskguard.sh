@@ -14,6 +14,8 @@ free_gb() {
 
 diskguard() {
   local need_gb="${1:-0}"
+  # Round decimal GB up to a whole number so the integer math below tolerates 0.25, 9.2, etc.
+  need_gb="$(awk -v n="$need_gb" 'BEGIN{ printf "%d", (n>int(n) ? int(n)+1 : int(n)) }')"
   local free; free="$(free_gb)"
   local projected=$(( free - need_gb ))
   if (( projected < MIN_FREE_GB )); then
