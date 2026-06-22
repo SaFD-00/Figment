@@ -9,6 +9,11 @@ image stack (~70GB) is sized to **co-reside** at once; video swaps in.
 The catalog is **consolidated to one model per feature** (or one model covering several), chosen for
 performance + native NSFW. All required weights are already on disk — **no new downloads are needed**.
 
+**Mode is LLM-routed, not user-picked.** The chat LLM chooses `GenSpec.mode`; `DEFAULT_BY_MODE` in
+`registry.py` is the **router/engine fallback** that fills `GenSpec.model` when none is set — it is no
+longer a user-facing per-mode selection. The UI still remembers a per-mode image model and applies it
+as the override once the mode is routed.
+
 **Provider note:** the cloud engine is unified on **OpenRouter** (`OPENROUTER_API_KEY`). Cloud models
 now produce **raster images** (interchangeable with local) for the normal modes and **editable
 SVG/PPTX figures** for `Mode.figure`. With no key the cloud path raises a clear error (raster) or

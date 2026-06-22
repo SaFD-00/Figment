@@ -23,11 +23,22 @@ FastAPI backend (:8000)
 ```
 
 ## Request flows
-- **Chat → generate**: `POST /chat` streams the LLM reply; the GENSPEC block is withheld from the
-  visible stream and emitted as a `genspec` SSE event. The user presses Generate → `POST /jobs`.
-  The chat LLM follows the UI model pick (`ChatRequest.llm_model`): `chat.py:_resolve_chat` routes a
-  **local** LLM to its Ollama tag and a **cloud** LLM to OpenRouter (`openrouter_client.py`), degrading
-  to the default Ollama model when no key is set — so model choice lives in the picker, not `.env`.
+- **Home → chat (single entry, no mode tabs)**: the home composer (`PromptBox`) no longer picks a
+  mode. It creates a project, stages any uploads as `reference` assets, and hands `{prompt,
+  attachments}` to the editor via the zustand `pendingStart` field. `ChatPanel` auto-sends that as the
+  **first chat turn**, so the originating prompt becomes the first message in the conversation (it is
+  no longer a card pinned to the canvas).
+- **Chat → route → generate**: `POST /chat` streams the LLM reply; the GENSPEC block is withheld from
+  the visible stream and emitted as a `genspec` SSE event. The chat LLM is the **router** — its system
+  prompt (`llm/prompts.py`) chooses `GenSpec.mode` from the prompt and any attached image, and asks one
+  short clarifying question (no GENSPEC) when the intent is ambiguous (edit vs. reference, raster vs.
+  figure). With attachments, `chat.py` notes them to the (vision) LLM and, after routing, injects the
+  asset ids into the spec by mode (`source_asset` for image→image, `reference_images` for style/figure)
+  then re-validates. A confident **first-turn** route auto-runs the job; later turns surface a "Generate
+  this" confirm button → `POST /jobs`. The chat LLM follows the UI model pick (`ChatRequest.llm_model`):
+  `chat.py:_resolve_chat` routes a **local** LLM to its Ollama tag and a **cloud** LLM to OpenRouter
+  (`openrouter_client.py`), degrading to the default Ollama model when no key is set — so model choice
+  lives in the picker, not `.env`.
 - **Job execution** (`orchestrator/queue.py`, `JobWorker._run`): resolve model → pick a
   `GenerationEngine` (`engines/base.py`) via `_select_engine` → `engine.run(EngineContext)` →
   `_persist` (one shared site: remove-bg for images → save asset + sidecars → `done`). The three engines:
