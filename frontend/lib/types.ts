@@ -53,6 +53,8 @@ export interface Job {
   progress: number;
   result_asset?: string;
   error?: string;
+  // GET /jobs/{id} returns the originating GenSpec inline (the prompt that started the project).
+  genspec?: GenSpec;
   created_at: string;
   updated_at: string;
 }
@@ -63,7 +65,8 @@ export type GenMode =
   | "inpaint"
   | "edit"
   | "controlnet"
-  | "reference";
+  | "reference"
+  | "video";
 
 export type ReferenceRole = "style" | "structure" | "edit" | "identity";
 
@@ -73,7 +76,7 @@ export interface ReferenceImage {
   strength: number;
 }
 
-export type ControlNetType = "canny" | "depth" | "scribble" | "lineart";
+export type ControlNetType = "canny" | "depth" | "scribble" | "lineart" | "pose";
 
 export interface Lora {
   name: string;

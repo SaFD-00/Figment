@@ -35,6 +35,7 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
   const maskMode = useEditorStore((s) => s.maskMode);
   const chatGenSpec = useEditorStore((s) => s.chatGenSpec);
   const setChatGenSpec = useEditorStore((s) => s.setChatGenSpec);
+  const setInitialPrompt = useEditorStore((s) => s.setInitialPrompt);
   const activeJob = useEditorStore((s) => s.activeJob);
   const images = useModelsStore((s) => s.image);
   const selectedImageId = useModelsStore((s) => s.selectedImageId);
@@ -51,7 +52,11 @@ export function ChatPanel({ projectId, onRedraw }: Props) {
     let alive = true;
     getMessages(projectId)
       .then((m) => {
-        if (alive) setMessages(m);
+        if (!alive) return;
+        setMessages(m);
+        // Fallback for projects opened without ?job= : pin the first user message.
+        const firstUser = m.find((msg) => msg.role === "user");
+        if (firstUser) setInitialPrompt(firstUser.content);
       })
       .catch(() => {
         /* none yet */

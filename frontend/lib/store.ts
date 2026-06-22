@@ -23,6 +23,8 @@ interface EditorState {
   eraser: boolean;
   activeJob: ActiveJob | null;
   chatGenSpec: GenSpec | null;
+  // The prompt that originated this project — pinned to the left of the canvas.
+  initialPrompt: string | null;
 
   setCurrentProjectId: (id: string | null) => void;
   // Set current asset, optionally pushing the previous one onto the undo stack.
@@ -38,6 +40,8 @@ interface EditorState {
   updateActiveJob: (patch: Partial<ActiveJob>) => void;
 
   setChatGenSpec: (spec: GenSpec | null) => void;
+  // Only sets when not already set, so the first source (job genspec or first chat message) wins.
+  setInitialPrompt: (prompt: string | null) => void;
 
   reset: () => void;
 }
@@ -51,6 +55,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   eraser: false,
   activeJob: null,
   chatGenSpec: null,
+  initialPrompt: null,
 
   setCurrentProjectId: (id) => set({ currentProjectId: id }),
 
@@ -91,6 +96,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setChatGenSpec: (spec) => set({ chatGenSpec: spec }),
 
+  setInitialPrompt: (prompt) =>
+    set((state) =>
+      // First non-empty source wins; don't clobber once set.
+      !state.initialPrompt && prompt ? { initialPrompt: prompt } : {},
+    ),
+
   reset: () =>
     set({
       currentAsset: null,
@@ -99,5 +110,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       eraser: false,
       activeJob: null,
       chatGenSpec: null,
+      initialPrompt: null,
     }),
 }));

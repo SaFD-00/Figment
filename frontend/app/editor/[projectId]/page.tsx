@@ -67,6 +67,7 @@ function EditorPageInner() {
   const setCurrentProjectId = useEditorStore((s) => s.setCurrentProjectId);
   const maskMode = useEditorStore((s) => s.maskMode);
   const setMaskMode = useEditorStore((s) => s.setMaskMode);
+  const setInitialPrompt = useEditorStore((s) => s.setInitialPrompt);
   const reset = useEditorStore((s) => s.reset);
 
   const { run, attach } = useJobRunner();
@@ -105,6 +106,8 @@ function EditorPageInner() {
     if (initialJob) {
       getJob(initialJob)
         .then((job) => {
+          // The originating prompt lives in the job's GenSpec — pin it to the canvas.
+          setInitialPrompt(job.genspec?.prompt ?? null);
           if (job.status === "done" && job.result_asset) {
             // Already finished before we attached — just load it.
             return;
