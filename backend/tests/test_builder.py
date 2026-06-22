@@ -53,14 +53,6 @@ def test_inpaint_flux_fill_stays_gguf(build_ctx, assert_graph):
     assert "UnetLoaderGGUF" in _types(res)  # flux-fill keeps GGUF weights
 
 
-def test_inpaint_sdxl_lustify(build_ctx, assert_graph):
-    spec = GenSpec(mode=Mode.inpaint, model="sdxl-inpaint", prompt="skin",
-                   source_asset="s", mask_asset="m")
-    res = B.build(spec, build_ctx("sdxl-inpaint", src="imggen/src.png", mask="imggen/mask.png"))
-    assert_graph(res)
-    assert "VAEEncodeForInpaint" in _types(res)
-
-
 # ── edit ─────────────────────────────────────────────────────────────────────
 def test_edit_qwen_aio(build_ctx, assert_graph):
     spec = GenSpec(mode=Mode.edit, model="qwen-edit-aio", prompt="remove the hat", source_asset="s")
@@ -72,14 +64,6 @@ def test_edit_qwen_aio(build_ctx, assert_graph):
     assert "UnetLoaderGGUF" not in _types(res)
 
 
-def test_edit_kontext_multiref(build_ctx, assert_graph):
-    spec = GenSpec(mode=Mode.edit, model="kontext", prompt="same outfit")
-    res = B.build(spec, build_ctx("kontext", refs=["imggen/a.png", "imggen/b.png"]))
-    assert_graph(res)
-    # one chained ReferenceLatent per reference image
-    assert sum(1 for n in res.graph.values() if n["class_type"] == "ReferenceLatent") == 2
-
-
 # ── reference / style ────────────────────────────────────────────────────────
 def test_reference_redux_native(build_ctx, assert_graph):
     spec = GenSpec(mode=Mode.reference, model="redux", prompt="this style")
@@ -88,29 +72,6 @@ def test_reference_redux_native(build_ctx, assert_graph):
     assert "StyleModelApply" in _types(res)
     # redux rides the Chroma fp8 base → native loader, not GGUF
     assert "UNETLoader" in _types(res) and "UnetLoaderGGUF" not in _types(res)
-
-
-# ── identity / face (consent-gated) ──────────────────────────────────────────
-def test_identity_instantid(build_ctx, assert_graph):
-    spec = GenSpec(mode=Mode.reference, model="instantid", prompt="portrait")
-    res = B.build(spec, build_ctx("instantid", refs=["imggen/face.png"]))
-    assert_graph(res)
-    assert "ApplyInstantID" in _types(res)
-
-
-def test_identity_ipadapter(build_ctx, assert_graph):
-    spec = GenSpec(mode=Mode.reference, model="ip-adapter", prompt="same face")
-    res = B.build(spec, build_ctx("ip-adapter", refs=["imggen/face.png"]))
-    assert_graph(res)
-    assert "IPAdapterFaceID" in _types(res)
-
-
-def test_identity_pulid_native(build_ctx, assert_graph):
-    spec = GenSpec(mode=Mode.reference, model="pulid-flux", prompt="same face")
-    res = B.build(spec, build_ctx("pulid-flux", refs=["imggen/face.png"]))
-    assert_graph(res)
-    assert "ApplyPulidFlux" in _types(res)
-    assert "UNETLoader" in _types(res)
 
 
 # ── controlnet + pose ────────────────────────────────────────────────────────
@@ -142,32 +103,14 @@ def test_video_wan_5b_ti2v(build_ctx, assert_video_graph):
     assert "KSampler" in _types(res)                      # single dense sampler (no MoE split)
 
 
-def test_video_wan_i2v(build_ctx, assert_video_graph):
-    spec = GenSpec(mode=Mode.video, model="wan22-i2v", prompt="pan the camera", source_asset="s")
-    res = B.build(spec, build_ctx("wan22-i2v", src="imggen/src.png"))
+def test_video_wan_5b_i2v(build_ctx, assert_video_graph):
+    """The 5B TI2V also covers image→video: a start_image feeds the same Wan22ImageToVideoLatent."""
+    spec = GenSpec(mode=Mode.video, model="wan22-ti2v", prompt="pan the camera", source_asset="s")
+    res = B.build(spec, build_ctx("wan22-ti2v", src="imggen/src.png"))
     assert_video_graph(res)
-    assert "WanImageToVideo" in _types(res)  # image→video branch
-
-
-def test_video_wan_a14b_moe(build_ctx, assert_video_graph):
-    """A14B (t2v) is a MoE: both noise experts load, each with its own lightx2v LoRA, and
-    sampling splits across two KSamplerAdvanced stages (high-noise → low-noise)."""
-    spec = GenSpec(mode=Mode.video, model="wan22-t2v", prompt="a city at night")
-    res = B.build(spec, build_ctx("wan22-t2v"))
-    assert_video_graph(res)
-    nodes = list(res.graph.values())
-    assert "EmptyHunyuanLatentVideo" in _types(res)  # 14B t2v uses the Hunyuan-shaped latent
-    # two UNET experts + two-stage advanced sampling
-    assert sum(n["class_type"] == "UNETLoader" for n in nodes) == 2
-    assert sum(n["class_type"] == "KSamplerAdvanced" for n in nodes) == 2
-    # high-noise expert LoRA (CLIP-side LoraLoader) + low-noise expert LoRA (LoraLoaderModelOnly)
-    lora_names = {n["inputs"].get("lora_name") for n in nodes if "lora" in n["class_type"].lower()}
-    assert "wan2.2_t2v_lightx2v_4step.safetensors" in lora_names
-    assert "wan2.2_t2v_lightx2v_4step_low.safetensors" in lora_names
-    assert any(n["class_type"] == "LoraLoaderModelOnly" for n in nodes)
-    # high stage seeds noise & hands leftover-noise latent to the low stage that finishes it
-    adv = [n for n in nodes if n["class_type"] == "KSamplerAdvanced"]
-    assert {n["inputs"]["add_noise"] for n in adv} == {"enable", "disable"}
+    assert "Wan22ImageToVideoLatent" in _types(res)
+    start = next(n for n in res.graph.values() if n["class_type"] == "Wan22ImageToVideoLatent")
+    assert "start_image" in start["inputs"]  # image→video path wired through start_image
 
 
 # ── LoRA chain + standalone upscalers ────────────────────────────────────────

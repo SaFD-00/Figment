@@ -20,6 +20,9 @@ LOCAL = {mid: m for mid, m in MODELS.items() if not is_cloud(m)}
 REMOVED_IDS = {
     "qwen-image", "z-image", "pony-v6", "qwen-edit",          # anime-first / superseded
     "seedream-4.5", "flux2-max", "flux2-pro", "flux2-flex",   # dropped cloud image models
+    "instantid", "ip-adapter", "pulid-flux",                 # identity merged into qwen-edit/redux
+    "sdxl-inpaint", "kontext",                                # consolidated (flux-fill / qwen-edit)
+    "wan22-t2v", "wan22-i2v",                                 # video consolidated to wan22-ti2v (5B)
 }
 
 
@@ -99,8 +102,6 @@ def test_video_models_are_kind_video():
 
 
 def test_core_photoreal_bases_are_natively_nsfw():
-    """The natively-uncensored picks must be flagged nsfw. (flux-fill/kontext are deliberately
-    nsfw=False — SFW bases that reach NSFW only via a LoRA — so they're excluded here.)"""
-    for mid in ("chroma-hd", "lustify", "sdxl-inpaint", "qwen-edit-aio", "instantid",
-                "wan22-ti2v", "wan22-t2v", "wan22-i2v"):
+    """The natively-uncensored local picks must be flagged nsfw."""
+    for mid in ("chroma-hd", "lustify", "flux-fill", "qwen-edit-aio", "redux", "wan22-ti2v"):
         assert MODELS[mid].nsfw, f"{mid} should be flagged nsfw (natively uncensored)"

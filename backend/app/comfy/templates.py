@@ -23,20 +23,15 @@ REQUIRED_NODES: dict[str, list[str]] = {
 }
 
 # Nodes that are nice-to-have; a missing one disables one feature but shouldn't block startup.
-# GGUF loaders are now optional (only flux-fill/kontext use them); identity/pose/video/USDU come
-# from custom nodes (scripts/12_install_custom_nodes.sh) and degrade gracefully if absent.
+# GGUF loaders are now optional (only flux-fill uses them); pose/video/USDU come from custom
+# nodes (scripts/12_install_custom_nodes.sh) and degrade gracefully if absent.
 OPTIONAL_NODES = {
     "UnetLoaderGGUF", "DualCLIPLoaderGGUF", "CLIPLoaderGGUF",
     "TextEncodeQwenImageEdit", "StyleModelApply",
     "CannyEdgePreprocessor", "DepthAnythingV2Preprocessor", "ScribblePreprocessor",
     "LineArtPreprocessor", "DWPreprocessor",
-    # identity / face
-    "InstantIDModelLoader", "InstantIDFaceAnalysis", "ApplyInstantID",
-    "IPAdapterUnifiedLoaderFaceID", "IPAdapterFaceID",
-    "PulidFluxModelLoader", "PulidFluxEvaClipLoader", "PulidFluxInsightFaceLoader", "ApplyPulidFlux",
     # upscale / video (Wan 2.2 nodes are native core, listed here only for startup visibility)
-    "UltimateSDUpscale", "WanImageToVideo", "EmptyHunyuanLatentVideo",
-    "Wan22ImageToVideoLatent", "KSamplerAdvanced", "LoraLoaderModelOnly", "SaveAnimatedWEBP",
+    "UltimateSDUpscale", "Wan22ImageToVideoLatent", "SaveAnimatedWEBP",
 }
 
 

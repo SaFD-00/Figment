@@ -30,7 +30,7 @@ ENGINE_CLOUD_OPENROUTER = "cloud-openrouter"
 @dataclass(frozen=True)
 class ModelDef:
     id: str
-    family: str                      # chroma|sdxl|flux|flux-fill|qwen-edit|kontext|identity|video|cloud|ollama
+    family: str                      # chroma|sdxl|flux-fill|qwen-edit|video|cloud|ollama
     label: str
     vram_gb: float                   # bf16/fp8 CUDA footprint on H100 (incl. shared encoders)
     supports: tuple[Mode, ...]
@@ -40,7 +40,7 @@ class ModelDef:
     defaults: dict = field(default_factory=dict)   # steps,cfg,sampler,scheduler
     template: Optional[str] = None   # ComfyUI builder path key; defaults to family if None
     builtin_loras: tuple[tuple[str, float], ...] = ()       # high-noise expert (or sole model) LoRAs
-    builtin_loras_low: tuple[tuple[str, float], ...] = ()   # low-noise expert LoRAs (A14B MoE video only)
+    builtin_loras_low: tuple[tuple[str, float], ...] = ()   # reserved (low-noise expert LoRAs; unused)
     # engine routing
     engine: str = ENGINE_LOCAL_COMFY
     kind: str = "image"              # "image" | "video" | "llm"
@@ -80,17 +80,10 @@ MODELS: dict[str, ModelDef] = {
         id="flux-fill", family="flux-fill", label="FLUX.1 Fill (local · inpaint, prompt-faithful)",
         vram_gb=12.0, supports=(Mode.inpaint,),
         files={"unet": "FLUX.1-Fill-dev-Q5_K_M.gguf", "clip": "t5-v1_1-xxl-encoder-Q5_K_M.gguf",
-               "clip2": _CLIP_L, "vae": _FLUX_VAE},  # GGUF kept (non-default; needs NSFW LoRA)
+               "clip2": _CLIP_L, "vae": _FLUX_VAE},
+        nsfw=True,
         defaults={"steps": 24, "cfg": 30.0, "sampler": "euler", "scheduler": "normal"},
         template="inpaint_flux_fill",
-    ),
-    "sdxl-inpaint": ModelDef(
-        id="sdxl-inpaint", family="sdxl", label="LUSTIFY SDXL Inpainting (local · explicit, fast)",
-        vram_gb=8.0, supports=(Mode.inpaint,),
-        files={"checkpoint": "lustifySDXL_inpainting.safetensors"},  # VERIFY: andro-flock/LUSTIFY-SDXL-NSFW-checkpoint-v2-0-INPAINTING
-        uses_negative=True, nsfw=True,
-        defaults={"steps": 24, "cfg": 7.0, "sampler": "dpmpp_2m", "scheduler": "karras"},
-        template="inpaint_sdxl",
     ),
     # ── Local instruction / reference edit ──────────────────────────────────
     "qwen-edit-aio": ModelDef(
@@ -101,14 +94,6 @@ MODELS: dict[str, ModelDef] = {
         defaults={"steps": 4, "cfg": 1.0, "sampler": "euler", "scheduler": "simple"},
         template="edit_qwen_aio",
     ),
-    "kontext": ModelDef(
-        id="kontext", family="kontext", label="FLUX.1 Kontext (local · reference edit, multi-ref)",
-        vram_gb=12.0, supports=(Mode.edit, Mode.reference),
-        files={"unet": "flux1-kontext-dev-Q4_K_M.gguf", "clip": "t5-v1_1-xxl-encoder-Q5_K_M.gguf",
-               "clip2": _CLIP_L, "vae": _FLUX_VAE},  # GGUF kept (needs NSFW Kontext LoRA)
-        defaults={"steps": 20, "cfg": 2.5, "sampler": "euler", "scheduler": "simple"},
-        template="edit_kontext",
-    ),
     # ── Local style reference (Redux rides the Chroma fp8 base — shared weights) ──
     "redux": ModelDef(
         id="redux", family="chroma", label="FLUX Redux (local · style reference, multi-ref)",
@@ -116,38 +101,9 @@ MODELS: dict[str, ModelDef] = {
         files={"unet": _CHROMA_UNET, "clip": _T5, "vae": _FLUX_VAE,
                "style_model": "flux1-redux-dev.safetensors",
                "clip_vision": "sigclip_vision_patch14_384.safetensors"},
+        nsfw=True,
         defaults={"steps": 24, "cfg": 3.5, "sampler": "euler", "scheduler": "simple"},
         template="redux_flux",
-    ),
-    # ── Local identity / face (consent-gated: consenting adults / synthetic faces only) ──
-    "instantid": ModelDef(
-        id="instantid", family="identity", label="InstantID (local · face identity over SDXL) · consent-gated",
-        vram_gb=12.0, supports=(Mode.reference,),
-        files={"checkpoint": _LUSTIFY,
-               "instantid": "ip-adapter.bin",                 # VERIFY: InstantX/InstantID
-               "controlnet": "instantid-diffusion_pytorch_model.safetensors"},
-        uses_negative=True, nsfw=True,
-        defaults={"steps": 28, "cfg": 5.0, "sampler": "dpmpp_2m_sde", "scheduler": "karras"},
-        template="identity_instantid",
-    ),
-    "ip-adapter": ModelDef(
-        id="ip-adapter", family="identity", label="IP-Adapter FaceID (local · identity/style over SDXL) · consent-gated",
-        vram_gb=9.0, supports=(Mode.reference,),
-        files={"checkpoint": _LUSTIFY,
-               "ipadapter": "ip-adapter-faceid-plusv2_sdxl.bin",  # VERIFY: h94/IP-Adapter-FaceID
-               "clip_vision": "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"},
-        uses_negative=True, nsfw=True,
-        defaults={"steps": 28, "cfg": 6.0, "sampler": "dpmpp_2m_sde", "scheduler": "karras"},
-        template="identity_ipadapter",
-    ),
-    "pulid-flux": ModelDef(
-        id="pulid-flux", family="identity", label="PuLID-FLUX (local · face identity over Chroma/FLUX) · consent-gated",
-        vram_gb=20.0, supports=(Mode.reference,),
-        files={"unet": _CHROMA_UNET, "clip": _T5, "vae": _FLUX_VAE,
-               "pulid": "pulid_flux_v0.9.1.safetensors"},        # VERIFY: guozinan/PuLID
-        nsfw=True,
-        defaults={"steps": 20, "cfg": 3.5, "sampler": "euler", "scheduler": "simple"},
-        template="identity_pulid",
     ),
     # ── Local NSFW video (Wan 2.2) — swap-in (does NOT co-reside with the full image stack) ──
     "wan22-ti2v": ModelDef(
@@ -158,32 +114,6 @@ MODELS: dict[str, ModelDef] = {
         nsfw=True,
         defaults={"steps": 20, "cfg": 5.0, "sampler": "euler", "scheduler": "simple"},
         template="video_wan",
-    ),
-    "wan22-t2v": ModelDef(
-        id="wan22-t2v", family="video", label="Wan 2.2 T2V-A14B (local · text→video, MoE quality)",
-        vram_gb=34.0, supports=(Mode.video,), kind="video",
-        files={"unet": "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
-               "unet2": "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
-               "clip": "umt5_xxl_fp8_e4m3fn.safetensors", "vae": "wan_2.1_vae.safetensors"},  # A14B reuses the Wan2.1 VAE (only the 5B uses wan2.2_vae)
-        nsfw=True,
-        # lightx2v 4-step distill is built in (both experts) → run at cfg 1.0, 4 total steps (high+low split).
-        defaults={"steps": 4, "cfg": 1.0, "sampler": "euler", "scheduler": "simple"},
-        template="video_wan",
-        builtin_loras=(("wan2.2_t2v_lightx2v_4step.safetensors", 1.0),),          # → high-noise expert
-        builtin_loras_low=(("wan2.2_t2v_lightx2v_4step_low.safetensors", 1.0),),  # → low-noise expert
-    ),
-    "wan22-i2v": ModelDef(
-        id="wan22-i2v", family="video", label="Wan 2.2 I2V-A14B (local · image→video, MoE quality)",
-        vram_gb=34.0, supports=(Mode.video,), kind="video",
-        files={"unet": "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
-               "unet2": "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
-               "clip": "umt5_xxl_fp8_e4m3fn.safetensors", "vae": "wan_2.1_vae.safetensors"},  # A14B reuses the Wan2.1 VAE (only the 5B uses wan2.2_vae)
-        nsfw=True,
-        # lightx2v 4-step distill is built in (both experts) → run at cfg 1.0, 4 total steps (high+low split).
-        defaults={"steps": 4, "cfg": 1.0, "sampler": "euler", "scheduler": "simple"},
-        template="video_wan",
-        builtin_loras=(("wan2.2_i2v_lightx2v_4step.safetensors", 1.0),),          # → high-noise expert
-        builtin_loras_low=(("wan2.2_i2v_lightx2v_4step_low.safetensors", 1.0),),  # → low-noise expert
     ),
     # ── Cloud image models (all OpenRouter) ─────────────────────────────────
     "gpt-image-2": ModelDef(

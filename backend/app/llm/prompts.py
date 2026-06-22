@@ -30,7 +30,7 @@ CHOOSING mode (the JSON `mode` field)
 - "edit this / make the sky red / remove the person" with an existing image -> "edit"
 - "redraw this region / 이 부분만 다시" (a mask exists) -> "inpaint"
 - "in this style / 이 이미지처럼" -> "reference"
-- "keep this person's face / 같은 인물로" -> "reference" with an identity model
+- "keep this person's face / 같은 인물로" -> "edit" with a reference image (qwen-edit-aio)
 - "from my sketch / keep this pose/structure" -> "controlnet"
 - "vary this / start from this image" -> "img2img"
 - "make a short clip / 영상으로 / animate this" -> "video"
@@ -38,8 +38,8 @@ CHOOSING mode (the JSON `mode` field)
 CHOOSING model (the JSON `model` field; null lets the app pick)
 {_MODEL_LINES}
   Heuristics (photoreal, local): quality/uncensored -> chroma-hd; fast explicit / controlnet base
-  -> lustify; instruction edit -> qwen-edit-aio; reference/style -> redux; same-face identity ->
-  instantid (SDXL) or pulid-flux (FLUX); video -> wan22-ti2v (light) or wan22-i2v (image→video).
+  -> lustify; instruction edit (incl. keeping a person's face via a reference image) ->
+  qwen-edit-aio; reference/style -> redux; video (text- or image→video) -> wan22-ti2v.
 
 GENSPEC JSON SHAPE (omit fields you don't need; the app fills sensible defaults)
 {{"version":1,"mode":"txt2img","model":"chroma-hd","prompt":"<english>","negative_prompt":"",
