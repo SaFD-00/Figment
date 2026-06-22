@@ -175,12 +175,16 @@ class OpenRouterImageClient:
         prompt: str,
         *,
         mask: bytes | None = None,
+        strength: float | None = None,
         size: str | None = None,
         background: str = "auto",
         input_fidelity: str = "high",
         transparent: bool = False,
     ) -> AssetResult:
-        """image-to-image 편집. mask는 이 경로 미지원 → 무시(전체-이미지 편집)."""
+        """image-to-image 편집. mask는 이 경로 미지원 → 무시(전체-이미지 편집).
+
+        ``strength``(0~1)은 입력 충실도 다이얼 — 낮을수록 입력에 가깝게(보수적 편집).
+        미지정 시 0.55(편집 기본)."""
         b64 = base64.b64encode(image).decode("ascii")
         content = [
             {"type": "text", "text": prompt},
@@ -191,7 +195,7 @@ class OpenRouterImageClient:
             "messages": [{"role": "user", "content": content}],
             "modalities": ["image"],
             # strength↓ = 입력에 가깝게(편집), upscale/white_bg은 보존 우선.
-            "image_config": {"strength": 0.55},
+            "image_config": {"strength": strength if strength is not None else 0.55},
         }
         data = await self._post(payload)
         return AssetResult(data=data, mime="image/png", has_alpha=False, provider=self.name)
