@@ -39,7 +39,8 @@ class ModelDef:
     nsfw: bool = False
     defaults: dict = field(default_factory=dict)   # steps,cfg,sampler,scheduler
     template: Optional[str] = None   # ComfyUI builder path key; defaults to family if None
-    builtin_loras: tuple[tuple[str, float], ...] = ()
+    builtin_loras: tuple[tuple[str, float], ...] = ()       # high-noise expert (or sole model) LoRAs
+    builtin_loras_low: tuple[tuple[str, float], ...] = ()   # low-noise expert LoRAs (A14B MoE video only)
     # engine routing
     engine: str = ENGINE_LOCAL_COMFY
     kind: str = "image"              # "image" | "video" | "llm"
@@ -162,22 +163,26 @@ MODELS: dict[str, ModelDef] = {
         vram_gb=34.0, supports=(Mode.video,), kind="video",
         files={"unet": "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
                "unet2": "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
-               "clip": "umt5_xxl_fp8_e4m3fn.safetensors", "vae": "wan2.2_vae.safetensors"},  # VERIFY: Wan-AI/Wan2.2-T2V-A14B
+               "clip": "umt5_xxl_fp8_e4m3fn.safetensors", "vae": "wan_2.1_vae.safetensors"},  # A14B reuses the Wan2.1 VAE (only the 5B uses wan2.2_vae)
         nsfw=True,
-        defaults={"steps": 20, "cfg": 5.0, "sampler": "euler", "scheduler": "simple"},
+        # lightx2v 4-step distill is built in (both experts) → run at cfg 1.0, 4 total steps (high+low split).
+        defaults={"steps": 4, "cfg": 1.0, "sampler": "euler", "scheduler": "simple"},
         template="video_wan",
-        builtin_loras=(("wan2.2_t2v_lightx2v_4step.safetensors", 1.0),),  # VERIFY: lightx2v/Wan2.2-Distill-Models
+        builtin_loras=(("wan2.2_t2v_lightx2v_4step.safetensors", 1.0),),          # → high-noise expert
+        builtin_loras_low=(("wan2.2_t2v_lightx2v_4step_low.safetensors", 1.0),),  # → low-noise expert
     ),
     "wan22-i2v": ModelDef(
         id="wan22-i2v", family="video", label="Wan 2.2 I2V-A14B (local · image→video, MoE quality)",
         vram_gb=34.0, supports=(Mode.video,), kind="video",
         files={"unet": "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
                "unet2": "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
-               "clip": "umt5_xxl_fp8_e4m3fn.safetensors", "vae": "wan2.2_vae.safetensors"},  # VERIFY: Wan-AI/Wan2.2-I2V-A14B
+               "clip": "umt5_xxl_fp8_e4m3fn.safetensors", "vae": "wan_2.1_vae.safetensors"},  # A14B reuses the Wan2.1 VAE (only the 5B uses wan2.2_vae)
         nsfw=True,
-        defaults={"steps": 20, "cfg": 5.0, "sampler": "euler", "scheduler": "simple"},
+        # lightx2v 4-step distill is built in (both experts) → run at cfg 1.0, 4 total steps (high+low split).
+        defaults={"steps": 4, "cfg": 1.0, "sampler": "euler", "scheduler": "simple"},
         template="video_wan",
-        builtin_loras=(("wan2.2_i2v_lightx2v_4step.safetensors", 1.0),),  # VERIFY: lightx2v/Wan2.2-Distill-Models
+        builtin_loras=(("wan2.2_i2v_lightx2v_4step.safetensors", 1.0),),          # → high-noise expert
+        builtin_loras_low=(("wan2.2_i2v_lightx2v_4step_low.safetensors", 1.0),),  # → low-noise expert
     ),
     # ── Cloud image models (all OpenRouter) ─────────────────────────────────
     "gpt-image-2": ModelDef(

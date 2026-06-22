@@ -34,8 +34,9 @@ OPTIONAL_NODES = {
     "InstantIDModelLoader", "InstantIDFaceAnalysis", "ApplyInstantID",
     "IPAdapterUnifiedLoaderFaceID", "IPAdapterFaceID",
     "PulidFluxModelLoader", "PulidFluxEvaClipLoader", "PulidFluxInsightFaceLoader", "ApplyPulidFlux",
-    # upscale / video
-    "UltimateSDUpscale", "WanImageToVideo", "EmptyHunyuanLatentVideo", "SaveAnimatedWEBP",
+    # upscale / video (Wan 2.2 nodes are native core, listed here only for startup visibility)
+    "UltimateSDUpscale", "WanImageToVideo", "EmptyHunyuanLatentVideo",
+    "Wan22ImageToVideoLatent", "KSamplerAdvanced", "LoraLoaderModelOnly", "SaveAnimatedWEBP",
 }
 
 

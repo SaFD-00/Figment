@@ -105,7 +105,8 @@ stage_video() {  # NSFW video (Wan 2.2): TI2V-5B (default) + T2V/I2V-A14B + umt5
   # Shared Wan encoder + VAE
   dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" \
      clip 5 "umt5_xxl_fp8_e4m3fn.safetensors"
-  dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/vae/wan2.2_vae.safetensors"  vae 0.5
+  dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/vae/wan2.2_vae.safetensors"  vae 1.5   # TI2V-5B VAE
+  dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/vae/wan_2.1_vae.safetensors" vae 0.3   # A14B (14B) reuses Wan2.1 VAE
   # TI2V-5B (light, default video)
   dl Comfy-Org/Wan_2.2_ComfyUI_Repackaged  "split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors"  unet 10
   # T2V-A14B (MoE: high+low noise UNETs)

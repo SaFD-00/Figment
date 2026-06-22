@@ -5,8 +5,8 @@ images, and mode branching stay type-safe and easy to correct against a live /ob
 
 Node `class_type`s used:
   Core:    CheckpointLoaderSimple, CLIPTextEncode, EmptyLatentImage, EmptySD3LatentImage,
-           KSampler, VAEDecode, VAEEncode, VAEEncodeForInpaint, LoadImage, SaveImage,
-           LoraLoader, ControlNetLoader, ControlNetApplyAdvanced, ImageUpscaleWithModel,
+           KSampler, KSamplerAdvanced, VAEDecode, VAEEncode, VAEEncodeForInpaint, LoadImage, SaveImage,
+           LoraLoader, LoraLoaderModelOnly, ControlNetLoader, ControlNetApplyAdvanced, ImageUpscaleWithModel,
            UpscaleModelLoader, StyleModelLoader, CLIPVisionLoader, CLIPVisionEncode,
            StyleModelApply, FluxGuidance, InpaintModelConditioning, ReferenceLatent,
            UNETLoader, CLIPLoader, DualCLIPLoader, VAELoader, TextEncodeQwenImageEdit
@@ -16,7 +16,7 @@ Node `class_type`s used:
                         PulidFluxModelLoader, PulidFluxInsightFaceLoader, PulidFluxEvaClipLoader, ApplyPulidFlux
   Pose (controlnet_aux): DWPreprocessor
   Upscale (USDU):       UltimateSDUpscale
-  Video (Wan 2.2):      WanImageToVideo, EmptyHunyuanLatentVideo, SaveAnimatedWEBP
+  Video (Wan 2.2):      WanImageToVideo, EmptyHunyuanLatentVideo, Wan22ImageToVideoLatent, SaveAnimatedWEBP
 
 TARGET = single NVIDIA H100 80GB (CUDA): native fp8/bf16 safetensors are first-class. The loader
 node is chosen by file extension — `.gguf` → ComfyUI-GGUF loaders (flux-fill/kontext), otherwise
@@ -99,6 +99,15 @@ def _apply_loras(g: _G, model_link, clip_link, m: ModelDef, spec: GenSpec):
         })
         model_link, clip_link = [nid, 0], [nid, 1]
     return model_link, clip_link
+
+
+def _apply_model_loras(g: _G, model_link, loras) -> list:
+    """Chain model-only LoRAs (no CLIP side) — used for the Wan low-noise expert, whose CLIP
+    conditioning is already encoded by the high-noise stage."""
+    for name, weight in loras:
+        nid = g.add("LoraLoaderModelOnly", {"lora_name": name, "strength_model": weight, "model": model_link})
+        model_link = [nid, 0]
+    return model_link
 
 
 def _ksampler(g: _G, *, model, positive, negative, latent, spec: GenSpec, d: dict, denoise: float = 1.0) -> str:
@@ -407,19 +416,40 @@ def build_identity_pulid(spec: GenSpec, ctx: BuildContext) -> BuildResult:
 
 # ── NSFW video (Wan 2.2). Best-effort graph; node names validated at startup. ────
 def build_video_wan(spec: GenSpec, ctx: BuildContext) -> BuildResult:
-    """Wan 2.2 text/image→video. Single 5B (ti2v) or high+low-noise 14B experts (t2v/i2v) +
-    optional lightx2v 4-step distill LoRA. i2v branches on a source image."""
+    """Wan 2.2 text/image→video.
+
+    • TI2V-5B (single dense expert): one UNET + one KSampler, on the new wan2.2 VAE, with the
+      5B-specific Wan22ImageToVideoLatent node (optional start_image → both t2v and i2v).
+    • T2V/I2V-A14B (MoE): high-noise + low-noise experts, each carrying its own lightx2v 4-step
+      distill LoRA, sampled in two KSamplerAdvanced stages — the high-noise expert handles the
+      high-sigma steps [0, split), the low-noise expert finishes [split, steps). Reuses the
+      Wan2.1 VAE. i2v branches on a source image (WanImageToVideo)."""
     g = _G()
     m, d = ctx.model, _defaults(spec, ctx.model)
-    unet = g.add("UNETLoader", {"unet_name": m.files["unet"], "weight_dtype": "fp8_e4m3fn"})
     clip = g.add("CLIPLoader", {"clip_name": m.files["clip"], "type": "wan"})
     vae = g.add("VAELoader", {"vae_name": m.files["vae"]})
-    model_link, clip_link, vae_link = [unet, 0], [clip, 0], [vae, 0]
-    model_link, clip_link = _apply_loras(g, model_link, clip_link, m, spec)
+    clip_link, vae_link = [clip, 0], [vae, 0]
+
+    # High-noise expert (or the sole 5B expert) + its builtin/user LoRAs (chains the CLIP side too).
+    unet_hi = g.add("UNETLoader", {"unet_name": m.files["unet"], "weight_dtype": "fp8_e4m3fn"})
+    hi_link, clip_link = _apply_loras(g, [unet_hi, 0], clip_link, m, spec)
+
     pos = g.add("CLIPTextEncode", {"text": spec.prompt, "clip": clip_link})
     neg = g.add("CLIPTextEncode", {"text": spec.negative_prompt, "clip": clip_link})
+
     frames = spec.video_frames
-    if ctx.comfy_source:  # image→video
+    # The 5B TI2V uses the new high-compression wan2.2 VAE → its own latent node
+    # (Wan22ImageToVideoLatent, with an optional start_image so it covers both t2v and i2v).
+    # The 14B experts use the Wan2.1 VAE / Hunyuan-shaped 16ch latent: EmptyHunyuanLatentVideo
+    # for t2v, WanImageToVideo for i2v (which re-emits conditioning).
+    if m.files["vae"] == "wan2.2_vae.safetensors":   # Wan 2.2 5B TI2V (dense, new VAE)
+        lat_inputs = {"vae": vae_link, "width": ctx.width, "height": ctx.height,
+                      "length": frames, "batch_size": 1}
+        if ctx.comfy_source:
+            lat_inputs["start_image"] = [g.add("LoadImage", {"image": ctx.comfy_source}), 0]
+        latent_node = g.add("Wan22ImageToVideoLatent", lat_inputs)
+        pos_link, neg_link, latent = [pos, 0], [neg, 0], [latent_node, 0]
+    elif ctx.comfy_source:                           # 14B image→video
         start = g.add("LoadImage", {"image": ctx.comfy_source})
         wiv = g.add("WanImageToVideo", {
             "positive": [pos, 0], "negative": [neg, 0], "vae": vae_link,
@@ -427,12 +457,34 @@ def build_video_wan(spec: GenSpec, ctx: BuildContext) -> BuildResult:
             "start_image": [start, 0],
         })
         pos_link, neg_link, latent = [wiv, 0], [wiv, 1], [wiv, 2]
-    else:                 # text→video
+    else:                                            # 14B text→video
         latent_node = g.add("EmptyHunyuanLatentVideo", {
             "width": ctx.width, "height": ctx.height, "length": frames, "batch_size": 1,
         })
         pos_link, neg_link, latent = [pos, 0], [neg, 0], [latent_node, 0]
-    ks = _ksampler(g, model=model_link, positive=pos_link, negative=neg_link, latent=latent, spec=spec, d=d)
+
+    unet2 = m.files.get("unet2")
+    if unet2:  # A14B MoE: split sampling across high- then low-noise experts.
+        steps, seed = int(d["steps"]), _seed(spec)
+        split = max(1, steps // 2)
+        cfg, sampler, scheduler = float(d["cfg"]), d["sampler"], d["scheduler"]
+        unet_lo = g.add("UNETLoader", {"unet_name": unet2, "weight_dtype": "fp8_e4m3fn"})
+        lo_link = _apply_model_loras(g, [unet_lo, 0], m.builtin_loras_low)
+        ks_hi = g.add("KSamplerAdvanced", {
+            "add_noise": "enable", "noise_seed": seed, "steps": steps, "cfg": cfg,
+            "sampler_name": sampler, "scheduler": scheduler,
+            "start_at_step": 0, "end_at_step": split, "return_with_leftover_noise": "enable",
+            "model": hi_link, "positive": pos_link, "negative": neg_link, "latent_image": latent,
+        })
+        ks = g.add("KSamplerAdvanced", {
+            "add_noise": "disable", "noise_seed": seed, "steps": steps, "cfg": cfg,
+            "sampler_name": sampler, "scheduler": scheduler,
+            "start_at_step": split, "end_at_step": steps, "return_with_leftover_noise": "disable",
+            "model": lo_link, "positive": pos_link, "negative": neg_link, "latent_image": [ks_hi, 0],
+        })
+    else:      # TI2V-5B single dense expert.
+        ks = _ksampler(g, model=hi_link, positive=pos_link, negative=neg_link, latent=latent, spec=spec, d=d)
+
     dec = g.add("VAEDecode", {"samples": [ks, 0], "vae": vae_link})
     save = g.add("SaveAnimatedWEBP", {
         "filename_prefix": "imggen", "images": [dec, 0], "fps": spec.video_fps,

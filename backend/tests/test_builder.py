@@ -130,12 +130,16 @@ def test_controlnet_sdxl_canny(build_ctx, assert_graph):
 
 
 # ── video (Wan 2.2) ──────────────────────────────────────────────────────────
-def test_video_wan_t2v(build_ctx, assert_video_graph):
+def test_video_wan_5b_ti2v(build_ctx, assert_video_graph):
+    """The 5B TI2V (default video model) uses the new wan2.2 VAE → the 5B-specific latent node,
+    NOT EmptyHunyuanLatentVideo (which is the 14B Hunyuan-shaped latent). Single dense sampler."""
     spec = GenSpec(mode=Mode.video, model="wan22-ti2v", prompt="a waterfall")
     res = B.build(spec, build_ctx("wan22-ti2v"))
     assert_video_graph(res)
     assert "SaveAnimatedWEBP" in _types(res)
-    assert "EmptyHunyuanLatentVideo" in _types(res)  # text→video latent
+    assert "Wan22ImageToVideoLatent" in _types(res)       # 5B latent node
+    assert "EmptyHunyuanLatentVideo" not in _types(res)   # not the 14B latent
+    assert "KSampler" in _types(res)                      # single dense sampler (no MoE split)
 
 
 def test_video_wan_i2v(build_ctx, assert_video_graph):
@@ -143,6 +147,27 @@ def test_video_wan_i2v(build_ctx, assert_video_graph):
     res = B.build(spec, build_ctx("wan22-i2v", src="imggen/src.png"))
     assert_video_graph(res)
     assert "WanImageToVideo" in _types(res)  # image→video branch
+
+
+def test_video_wan_a14b_moe(build_ctx, assert_video_graph):
+    """A14B (t2v) is a MoE: both noise experts load, each with its own lightx2v LoRA, and
+    sampling splits across two KSamplerAdvanced stages (high-noise → low-noise)."""
+    spec = GenSpec(mode=Mode.video, model="wan22-t2v", prompt="a city at night")
+    res = B.build(spec, build_ctx("wan22-t2v"))
+    assert_video_graph(res)
+    nodes = list(res.graph.values())
+    assert "EmptyHunyuanLatentVideo" in _types(res)  # 14B t2v uses the Hunyuan-shaped latent
+    # two UNET experts + two-stage advanced sampling
+    assert sum(n["class_type"] == "UNETLoader" for n in nodes) == 2
+    assert sum(n["class_type"] == "KSamplerAdvanced" for n in nodes) == 2
+    # high-noise expert LoRA (CLIP-side LoraLoader) + low-noise expert LoRA (LoraLoaderModelOnly)
+    lora_names = {n["inputs"].get("lora_name") for n in nodes if "lora" in n["class_type"].lower()}
+    assert "wan2.2_t2v_lightx2v_4step.safetensors" in lora_names
+    assert "wan2.2_t2v_lightx2v_4step_low.safetensors" in lora_names
+    assert any(n["class_type"] == "LoraLoaderModelOnly" for n in nodes)
+    # high stage seeds noise & hands leftover-noise latent to the low stage that finishes it
+    adv = [n for n in nodes if n["class_type"] == "KSamplerAdvanced"]
+    assert {n["inputs"]["add_noise"] for n in adv} == {"enable", "disable"}
 
 
 # ── LoRA chain + standalone upscalers ────────────────────────────────────────
