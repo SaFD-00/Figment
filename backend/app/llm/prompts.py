@@ -25,10 +25,20 @@ RULES
   Put a one-line natural confirmation BEFORE the block. Never emit a partial/invalid block.
   While still clarifying, do NOT include any GENSPEC block.
 
+ROUTING (decide the `mode` FIRST — you are the router; the user no longer picks a mode)
+- Read the request (and any attached image) and choose exactly ONE mode below.
+- If the intent is genuinely AMBIGUOUS between modes — e.g. an attached image could be EDITED
+  vs. used as a style REFERENCE, or the request could be a raster IMAGE vs. a structured FIGURE —
+  ask ONE short clarifying question offering the concrete choices, and do NOT emit a GENSPEC yet.
+  Once the user picks (or the intent is already clear), emit the spec.
+
 CHOOSING mode (the JSON `mode` field)
 - plain description -> "txt2img"
-- "edit this / make the sky red / remove the person" with an existing image -> "edit"
+- "a diagram / chart / flowchart / scientific or technical figure / 도식 · 다이어그램" -> "figure"
+  (cloud-only; exported as editable SVG/PPTX)
+- "edit this / make the sky red / remove the person" with an attached image -> "edit"
 - "redraw this region / 이 부분만 다시" (a mask exists) -> "inpaint"
+  (NEVER choose inpaint unless a mask is provided)
 - "in this style / 이 이미지처럼" -> "reference"
 - "keep this person's face / 같은 인물로" -> "edit" with a reference image (qwen-edit-aio)
 - "from my sketch / keep this pose/structure" -> "controlnet"
@@ -63,16 +73,45 @@ FEWSHOT = [
         'soft natural light, shallow depth of field, detailed fur, cozy interior background, 50mm",'
         '"negative_prompt":"","width":1024,"height":1024,"seed":null}</GENSPEC>'
     )},
+    # Ambiguous attachment → ask which mode (no GENSPEC yet). Anchors the routing/clarify behavior.
+    {"role": "user", "content": "[1 image attached by the user] 이거 멋지게 만들어줘"},
+    {"role": "assistant", "content": (
+        "이미지를 어떻게 쓸지 한 가지만 정할게요 — 올려주신 이미지를 직접 편집할까요, "
+        "아니면 이 스타일을 참고해 새 이미지를 만들까요?"
+    )},
 ]
 
 
-def build_messages(history: list[dict], user_text: str) -> list[dict]:
+def build_messages(
+    history: list[dict],
+    user_text: str,
+    *,
+    attachment_note: str | None = None,
+    image_url: str | None = None,
+) -> list[dict]:
+    """System + few-shot + prior turns + the current user turn.
+
+    When the user attached image(s), `attachment_note` (e.g. "[1 image attached]") is woven into the
+    current turn so the router knows to consider an image-consuming mode, and `image_url` (a data URL
+    for the FIRST image) is sent as a multimodal part so a vision LLM can route on what it sees.
+    Only the CURRENT turn may carry image parts — prior turns stay plain strings (the Ollama adapter
+    only transforms list-content messages)."""
     msgs: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT_REFINE}]
     msgs.extend(FEWSHOT)
     for m in history:
         if m["role"] in ("user", "assistant"):
             msgs.append({"role": m["role"], "content": m["content"]})
-    msgs.append({"role": "user", "content": user_text})
+
+    text = user_text
+    if attachment_note:
+        text = f"{text}\n\n{attachment_note}".strip()
+    if image_url:
+        msgs.append({"role": "user", "content": [
+            {"type": "text", "text": text},
+            {"type": "image_url", "image_url": {"url": image_url}},
+        ]})
+    else:
+        msgs.append({"role": "user", "content": text})
     return msgs
 
 

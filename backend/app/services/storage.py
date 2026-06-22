@@ -2,6 +2,7 @@
 with the GenSpec for reproducibility."""
 from __future__ import annotations
 
+import base64
 import io
 import json
 import uuid
@@ -48,6 +49,19 @@ def save_video(project_id: str, data: bytes, kind: str, ext: str = "webp",
     except Exception:  # mp4 / unsupported container — dims unknown, not fatal
         pass
     return str(path), w, h
+
+
+def file_to_data_url(path: str, media_type: str = "image/png") -> str | None:
+    """Read an on-disk asset into a base64 data URL, or None if the file is missing.
+
+    Used to hand an uploaded image to a vision LLM (e.g. chat-mode routing). Never raises on a
+    missing file — the caller simply skips the image part. Uploads are normalized to PNG, so the
+    default media type is correct for asset files."""
+    p = Path(path)
+    if not p.exists():
+        return None
+    b64 = base64.b64encode(p.read_bytes()).decode("ascii")
+    return f"data:{media_type};base64,{b64}"
 
 
 def save_named(project_id: str, src_path: str, ext: str) -> str:
