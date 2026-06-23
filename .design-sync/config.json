@@ -1,0 +1,35 @@
+{
+  "pkg": "figment-frontend",
+  "projectId": "df3a3fed-145c-4449-9b8e-01c4ba170e5a",
+  "globalName": "Figment",
+  "shape": "package",
+  "tsconfig": "tsconfig.json",
+  "cssEntry": ".ds-bundle-styles.css",
+  "tokensPkg": "../.ds-tokens",
+  "tokensGlob": "*.css",
+  "extraFonts": [".ds-fonts/inter.css"],
+  "guidelinesGlob": "../.design-sync/guidelines/**/*.md",
+  "runtimeFontPrefixes": ["Apple SD Gothic Neo", "Noto Sans KR"],
+  "readmeHeader": ".design-sync/conventions.md",
+  "provider": { "component": "DesignSyncProvider" },
+  "componentSrcMap": {
+    "Button": "components/ui/Button.tsx",
+    "Spinner": "components/ui/Spinner.tsx",
+    "FeatureGrid": "components/home/FeatureGrid.tsx",
+    "ProjectCard": "components/home/ProjectCard.tsx",
+    "RecentProjects": "components/home/RecentProjects.tsx",
+    "ModelPill": "components/models/ModelPicker.tsx",
+    "ModelPillRow": "components/models/ModelPicker.tsx",
+    "PromptBox": "components/home/PromptBox.tsx"
+  },
+  "dtsPropsFor": {
+    "Button": "/** Visual style. Defaults to \"secondary\". */\nvariant?: \"primary\" | \"secondary\" | \"ghost\" | \"danger\";\n/** Control height/padding. Defaults to \"md\". */\nsize?: \"sm\" | \"md\" | \"lg\";\nchildren?: React.ReactNode;\nclassName?: string;\ndisabled?: boolean;\ntype?: \"button\" | \"submit\" | \"reset\";\nonClick?: React.MouseEventHandler<HTMLButtonElement>;\ntitle?: string;\n/* Also accepts every native <button> HTML attribute. */",
+    "Spinner": "/** Extra classes (e.g. sizing/colour). The spinner is sized 1rem by default. */\nclassName?: string;",
+    "FeatureGrid": "/* No props — renders Figment's three static feature pillars (Generate / Edit / Vectorize). */",
+    "ProjectCard": "/** The project to display; the card links to /editor/<id>. */\nproject: {\n  id: string;\n  title: string;\n  cover_asset?: string;\n  created_at: string;\n  updated_at: string;\n};",
+    "RecentProjects": "/* No props — fetches and renders the recent-projects grid as ProjectCard items. */",
+    "ModelPill": "/** Which catalog to show. */\nkind: \"image\" | \"llm\";\n/** For kind=\"image\": scopes the list + selection to a generation mode. Defaults to \"txt2img\". */\nmode?: \"txt2img\" | \"img2img\" | \"inpaint\" | \"edit\" | \"controlnet\" | \"reference\" | \"video\" | \"figure\";\n/** Popover direction. Defaults to \"bottom\". */\nplacement?: \"top\" | \"bottom\";\n/** Allow selecting models that aren't ready (no API key / not downloaded). */\nallowNotReady?: boolean;",
+    "ModelPillRow": "className?: string;\n/** Scopes the image pill to a generation mode. */\nmode?: \"txt2img\" | \"img2img\" | \"inpaint\" | \"edit\" | \"controlnet\" | \"reference\" | \"video\" | \"figure\";\n/** Popover direction. Defaults to \"bottom\". */\nplacement?: \"top\" | \"bottom\";",
+    "PromptBox": "/* No props — the home-page entry composer (prompt + optional image attachments). */"
+  }
+}

@@ -41,3 +41,13 @@ figgen_out/
 
 # os
 .DS_Store
+
+# design-sync (claude.ai/design) — generated build output & staged tooling.
+# Durable inputs stay tracked: .design-sync/{config.json,NOTES.md,conventions.md,
+# previews/,guidelines/}, frontend/.design-sync-entry.tsx, frontend/.ds-tailwind.config.ts,
+# frontend/.ds-tailwind-input.css, frontend/.ds-tokens/, frontend/.ds-fonts/.
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+frontend/.ds-bundle-styles.css

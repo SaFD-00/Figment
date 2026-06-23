@@ -1,0 +1,6 @@
+{
+  "name": "figment-design-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Figment brand design tokens (CSS custom properties) shipped to claude.ai/design via design-sync cfg.tokensPkg. Not a published package."
+}
